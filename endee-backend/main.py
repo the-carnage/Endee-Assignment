@@ -2,9 +2,8 @@ import os
 import uuid
 import tempfile
 import traceback
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from utils.db import add_chunks_to_db, query_db
