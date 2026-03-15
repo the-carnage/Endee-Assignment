@@ -1,5 +1,3 @@
-import React from 'react';
-
 const MicFooter = ({ status, docLoaded, onMicClick }) => {
   const getStatusText = () => {
     switch(status) {

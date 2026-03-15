@@ -1,5 +1,3 @@
-import React from 'react';
-
 const AppHeader = ({ subtitlesEnabled, setSubtitlesEnabled, onClearData }) => {
   return (
     <header className="app-header">

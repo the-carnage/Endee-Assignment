@@ -1,4 +1,3 @@
-import React from 'react';
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder';
 import './VoiceRecorder.css';
 
