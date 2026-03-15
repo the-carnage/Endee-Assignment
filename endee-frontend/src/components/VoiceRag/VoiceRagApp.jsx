@@ -129,8 +129,6 @@ const VoiceRagApp = () => {
   };
 
   const handleClearData = async () => {
-    if (!window.confirm("Are you sure you want to clear all data and reset the app?")) return;
-
     try {
       await fetch('http://localhost:8000/clear', { method: 'POST' });
     } catch (e) {
@@ -138,13 +136,9 @@ const VoiceRagApp = () => {
     }
 
     localStorage.clear();
-    setDocLoaded(false);
-    setAppStatus('idle');
-    setMessages([]);
-    setDocSummary('');
-    // Note: UploadZone state won't reset automatically since it manages its own state,
-    // but typically a user would refresh after a hard reset anyway.
-    window.location.reload();
+    
+    // Instead of state resets which get re-saved by hooks, force a clean reload immediately
+    window.location.replace(window.location.pathname);
   };
 
   return (

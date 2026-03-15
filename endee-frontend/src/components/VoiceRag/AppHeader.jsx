@@ -27,8 +27,13 @@ const AppHeader = ({ subtitlesEnabled, setSubtitlesEnabled, onClearData }) => {
       <div className="header-controls">
         {onClearData && (
           <button 
+            type="button"
             className="clear-data-btn" 
-            onClick={onClearData}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClearData();
+            }}
             title="Clear all documents and chat history"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
