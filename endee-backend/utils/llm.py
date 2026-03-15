@@ -14,8 +14,8 @@ model = genai.GenerativeModel('gemini-1.5-flash')
 
 def generate_summary(text: str) -> str:
     """Generates a brief auto-summary of the ingested document."""
-    if not GEMINI_API_KEY:
-        return "Backend API Key missing. Upload successful but summary unavailable."
+    if not GEMINI_API_KEY or GEMINI_API_KEY == "your_gemini_api_key_here":
+        return "Backend API Key missing or invalid. Upload successful but summary unavailable."
         
     prompt_text = text[:15000] if len(text) > 15000 else text
     
@@ -32,12 +32,12 @@ def generate_summary(text: str) -> str:
         return response.text.strip()
     except Exception as e:
         print(f"Error generating summary: {e}")
-        return "Document indexed successfully."
+        return f"Error: {str(e)}"
 
 def answer_query(query: str, context: str) -> str:
     """Answers a user query based solely on the provided context retrieved from the db."""
-    if not GEMINI_API_KEY:
-        return "I cannot answer right now because the backend API key is missing."
+    if not GEMINI_API_KEY or GEMINI_API_KEY == "your_gemini_api_key_here":
+        return "I cannot answer right now because the backend API key is missing or invalid."
         
     prompt = f"""
     You are a helpful Voice RAG Assistant. 
