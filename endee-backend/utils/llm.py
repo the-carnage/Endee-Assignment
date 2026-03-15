@@ -14,20 +14,13 @@ else:
 model = genai.GenerativeModel('gemini-2.0-flash')
 
 def generate_summary(text: str) -> str:
-    """Generates a brief auto-summary of the ingested document."""
     if not GEMINI_API_KEY or GEMINI_API_KEY == "your_gemini_api_key_here":
         return "Backend API Key missing or invalid. Upload successful but summary unavailable."
-        
+
     prompt_text = text[:15000] if len(text) > 15000 else text
-    
-    prompt = f"""
-    Please provide a very brief (2-3 sentences) summary of the following text.
-    Focus on the main topic and purpose of the document.
-    
-    Text:
-    {prompt_text}
-    """
-    
+
+    prompt = f"Summarise the following text in 2-3 sentences:\n\n{prompt_text}"
+
     try:
         response = model.generate_content(prompt)
         return response.text.strip()
@@ -36,23 +29,15 @@ def generate_summary(text: str) -> str:
         return f"Error: {str(e)}"
 
 def answer_query(query: str, context: str) -> str:
-    """Answers a user query based solely on the provided context retrieved from the db."""
     if not GEMINI_API_KEY or GEMINI_API_KEY == "your_gemini_api_key_here":
         return "I cannot answer right now because the backend API key is missing or invalid."
-        
-    prompt = f"""
-    You are a helpful Voice RAG Assistant. 
-    Answer the user's question using ONLY the provided context. 
-    If the answer is not contained within the context, say "I don't have enough information from the uploaded documents to answer that." 
-    Keep your answers conversational, concise, and easy to listen to, as they may be read aloud by text-to-speech.
 
-    Context:
-    {context}
-    
-    User Query:
-    {query}
-    """
-    
+    prompt = (
+        f"Answer the question using only the context below. "
+        f"If the answer is not in the context, say you don't have enough information.\n\n"
+        f"Context:\n{context}\n\nQuestion: {query}"
+    )
+
     try:
         response = model.generate_content(prompt)
         return response.text.strip()

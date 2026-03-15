@@ -30,7 +30,6 @@ const VoiceRagApp = () => {
   const appStatusRef = useRef(appStatus);
   const subtitlesRef = useRef(subtitlesEnabled);
 
-  // Keep refs in sync with state
   useEffect(() => { appStatusRef.current = appStatus; }, [appStatus]);
   useEffect(() => { subtitlesRef.current = subtitlesEnabled; }, [subtitlesEnabled]);
 
@@ -86,7 +85,6 @@ const VoiceRagApp = () => {
     }
   }, [addMessage]);
 
-  // Persist state to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('endee_subtitles', JSON.stringify(subtitlesEnabled));
   }, [subtitlesEnabled]);
@@ -139,8 +137,6 @@ const VoiceRagApp = () => {
     }
 
     localStorage.clear();
-    
-    // Instead of state resets which get re-saved by hooks, force a clean reload immediately
     window.location.replace(window.location.pathname);
   };
 

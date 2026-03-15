@@ -1,5 +1,4 @@
-/* src/components/VoiceRag/VoiceRag.css */
-/* ─── Reset & Base ─────────────────────────────── */
+/* reset */
 *,
 *::before,
 *::after {
@@ -45,7 +44,7 @@
   left: 0;
 }
 
-/* ─── Background Orbs ──────────────────────────── */
+/* background orbs */
 .bg-orb {
   position: absolute;
   border-radius: 50%;
@@ -92,7 +91,7 @@
   }
 }
 
-/* ─── App Shell ────────────────────────────────── */
+/* app shell */
 .app-wrapper {
   position: relative;
   z-index: 1;
@@ -100,12 +99,11 @@
   flex-direction: column;
   height: 100%;
   max-width: 800px;
-  /* Optional, to constrain width on large screens */
   margin: 0 auto;
   padding: 0 16px;
 }
 
-/* ─── Header ───────────────────────────────────── */
+/* header */
 .app-header {
   display: flex;
   align-items: center;
@@ -231,7 +229,7 @@
   font-weight: 500;
 }
 
-/* ─── Conversation Area ────────────────────────── */
+/* conversation area */
 .conversation-area {
   flex: 1;
   overflow-y: auto;
@@ -422,7 +420,7 @@
   }
 }
 
-/* ─── Status Bar ───────────────────────────────── */
+/* status bar */
 .status-bar {
   display: flex;
   align-items: center;
@@ -487,7 +485,7 @@
   font-weight: 500;
 }
 
-/* ─── Mic Footer ───────────────────────────────── */
+/* mic footer */
 .mic-footer {
   display: flex;
   flex-direction: column;
@@ -702,7 +700,7 @@
   margin: 0;
 }
 
-/* ─── Error toast ──────────────────────────────── */
+/* error toast */
 .toast {
   position: fixed;
   bottom: 32px;
@@ -728,7 +726,7 @@
   opacity: 1;
 }
 
-/* ─── Responsive ───────────────────────────────── */
+/* responsive */
 @media (max-width: 480px) {
   .app-wrapper {
     padding: 0 10px;
@@ -739,7 +737,7 @@
   }
 }
 
-/* ─── Upload Zone ──────────────────────────────── */
+/* upload zone */
 .upload-zone {
   flex-shrink: 0;
   margin: 12px 0 0;
