@@ -148,6 +148,41 @@
   font-weight: 400;
 }
 
+/* Header right side controls */
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.clear-data-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--surface-hv);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  border-radius: 8px;
+  font-family: var(--font);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clear-data-btn:hover {
+  background: rgba(239, 83, 80, 0.1);
+  border-color: rgba(239, 83, 80, 0.4);
+  color: #ef5350;
+}
+
+.clear-data-btn svg {
+  width: 14px;
+  height: 14px;
+  opacity: 0.8;
+}
+
 /* Toggle switch */
 .toggle-label {
   display: flex;
