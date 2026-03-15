@@ -43,7 +43,7 @@ def read_root():
 
 @app.post("/ingest/text")
 async def ingest_text(request: TextIngestRequest):
-    if not request.text or len(request.text) < 10:
+    if not request.text or len(request.text) < 30:
         raise HTTPException(status_code=400, detail="Text is too short.")
 
     source_id = str(uuid.uuid4())
