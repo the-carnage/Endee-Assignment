@@ -1,26 +1,21 @@
 import os
 from dotenv import load_dotenv
-from google import genai
+import google.generativeai as genai
 
 load_dotenv()
 
 GEMINI_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
-try:
-    if GEMINI_API_KEY and GEMINI_API_KEY != "your_gemini_api_key_here":
-        client = genai.Client(api_key=GEMINI_API_KEY)
-    else:
-        client = None
-        print("WARNING: GOOGLE_API_KEY is not set or is invalid.")
-except Exception as e:
-    client = None
-    print(f"WARNING: Failed to initialize Gemini Client: {e}")
+if GEMINI_API_KEY and GEMINI_API_KEY != "your_gemini_api_key_here":
+    genai.configure(api_key=GEMINI_API_KEY)
+else:
+    print("WARNING: GOOGLE_API_KEY is not set or is invalid.")
 
-MODEL_NAME = 'gemini-1.5-flash'
+model = genai.GenerativeModel('gemini-pro')
 
 def generate_summary(text: str) -> str:
     """Generates a brief auto-summary of the ingested document."""
-    if not client:
+    if not GEMINI_API_KEY or GEMINI_API_KEY == "your_gemini_api_key_here":
         return "Backend API Key missing or invalid. Upload successful but summary unavailable."
         
     prompt_text = text[:15000] if len(text) > 15000 else text
@@ -34,10 +29,7 @@ def generate_summary(text: str) -> str:
     """
     
     try:
-        response = client.models.generate_content(
-            model=MODEL_NAME,
-            contents=prompt,
-        )
+        response = model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
         print(f"Error generating summary: {e}")
@@ -45,7 +37,7 @@ def generate_summary(text: str) -> str:
 
 def answer_query(query: str, context: str) -> str:
     """Answers a user query based solely on the provided context retrieved from the db."""
-    if not client:
+    if not GEMINI_API_KEY or GEMINI_API_KEY == "your_gemini_api_key_here":
         return "I cannot answer right now because the backend API key is missing or invalid."
         
     prompt = f"""
@@ -62,10 +54,7 @@ def answer_query(query: str, context: str) -> str:
     """
     
     try:
-        response = client.models.generate_content(
-            model=MODEL_NAME,
-            contents=prompt,
-        )
+        response = model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
         print(f"Error answering query: {e}")
