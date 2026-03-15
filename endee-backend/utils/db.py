@@ -13,8 +13,13 @@ collection = client.get_or_create_collection(
 
 def add_chunks_to_db(chunks: list[str], source_id: str):
     """Adds a list of text chunks to the vector database."""
+    existing_data = collection.get()
+    if existing_data and existing_data["ids"]:
+        collection.delete(ids=existing_data["ids"])
+
     if not chunks:
         return 0
+
         
     ids = [f"{source_id}_{i}" for i in range(len(chunks))]
     metadatas = [{"source": source_id, "chunk_index": i} for i in range(len(chunks))]
