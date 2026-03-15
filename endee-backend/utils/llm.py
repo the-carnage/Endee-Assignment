@@ -28,11 +28,20 @@ def generate_summary(text: str) -> str:
         print(f"Error generating summary: {e}")
         return f"Error: {str(e)}"
 
-def answer_query(query: str, context: str) -> str:
+def answer_query(query: str, context: str, history: list = None) -> str:
     if not GEMINI_API_KEY or GEMINI_API_KEY == "your_gemini_api_key_here":
         return "I cannot answer right now because the backend API key is missing or invalid."
 
+    history_block = ""
+    if history:
+        lines = []
+        for msg in history[-6:]:
+            role = "User" if msg.get("role") == "user" else "Assistant"
+            lines.append(f"{role}: {msg.get('text', '')}")
+        history_block = "Conversation so far:\n" + "\n".join(lines) + "\n\n"
+
     prompt = (
+        f"{history_block}"
         f"Answer the question using only the context below. "
         f"If the answer is not in the context, say you don't have enough information.\n\n"
         f"Context:\n{context}\n\nQuestion: {query}"

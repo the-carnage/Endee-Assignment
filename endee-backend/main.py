@@ -1,8 +1,9 @@
 import os
+import json
 import uuid
 import tempfile
 import traceback
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -33,6 +34,7 @@ class TextIngestRequest(BaseModel):
 
 class QueryRequest(BaseModel):
     text: str
+    history: list = []
 
 @app.get("/")
 def read_root():
@@ -93,7 +95,7 @@ async def query_text(request: QueryRequest):
     if not context:
         return {"response": "I couldn't find any relevant information in the uploaded documents."}
 
-    answer = answer_query(request.text, context)
+    answer = answer_query(request.text, context, request.history)
     return {"response": answer}
 
 @app.post("/clear")
@@ -108,9 +110,14 @@ async def clear_database():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/query/voice")
-async def query_voice(audio: UploadFile = File(...)):
+async def query_voice(audio: UploadFile = File(...), history: str = Form(default="[]")):
     if not HAS_WHISPER:
         raise HTTPException(status_code=501, detail="Whisper is not installed on the server.")
+
+    try:
+        chat_history = json.loads(history)
+    except (json.JSONDecodeError, TypeError):
+        chat_history = []
 
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp:
@@ -128,7 +135,7 @@ async def query_voice(audio: UploadFile = File(...)):
         if not context:
             answer = "I couldn't find any relevant information in the uploaded documents."
         else:
-            answer = answer_query(transcript, context)
+            answer = answer_query(transcript, context, chat_history)
 
         return {"transcript": transcript, "response": answer}
 

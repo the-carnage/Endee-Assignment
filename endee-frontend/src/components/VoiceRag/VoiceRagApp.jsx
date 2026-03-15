@@ -1,120 +1,131 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import AppHeader from './AppHeader';
-import UploadZone from './UploadZone';
-import ConversationArea from './ConversationArea';
-import MicFooter from './MicFooter';
-import './VoiceRag.css';
-import { useVoiceRecorder } from '../../hooks/useVoiceRecorder';
+import { useState, useRef, useEffect, useCallback } from "react";
+import AppHeader from "./AppHeader";
+import UploadZone from "./UploadZone";
+import ConversationArea from "./ConversationArea";
+import MicFooter from "./MicFooter";
+import "./VoiceRag.css";
+import { useVoiceRecorder } from "../../hooks/useVoiceRecorder";
 
 const VoiceRagApp = () => {
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(() => {
-    const saved = localStorage.getItem('endee_subtitles');
+    const saved = localStorage.getItem("endee_subtitles");
     return saved !== null ? JSON.parse(saved) : true;
   });
   const [docLoaded, setDocLoaded] = useState(() => {
-    return localStorage.getItem('endee_docLoaded') === 'true';
+    return localStorage.getItem("endee_docLoaded") === "true";
   });
   const [appStatus, setAppStatus] = useState(() => {
-    const saved = localStorage.getItem('endee_appStatus');
-    return saved || 'idle';
+    const saved = localStorage.getItem("endee_appStatus");
+    return saved || "idle";
   });
   const [messages, setMessages] = useState(() => {
-    const saved = localStorage.getItem('endee_messages');
+    const saved = localStorage.getItem("endee_messages");
     return saved ? JSON.parse(saved) : [];
   });
   const [docSummary, setDocSummary] = useState(() => {
-    return localStorage.getItem('endee_docSummary') || '';
+    return localStorage.getItem("endee_docSummary") || "";
   });
 
   const audioPlayerRef = useRef(null);
   const appStatusRef = useRef(appStatus);
   const subtitlesRef = useRef(subtitlesEnabled);
+  const messagesRef = useRef(messages);
 
   useEffect(() => { appStatusRef.current = appStatus; }, [appStatus]);
   useEffect(() => { subtitlesRef.current = subtitlesEnabled; }, [subtitlesEnabled]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
 
-  const {
-    isRecording,
-    audioUrl,
-    startRecording,
-    stopRecording,
-  } = useVoiceRecorder();
+  const { isRecording, audioUrl, startRecording, stopRecording } =
+    useVoiceRecorder();
 
   const addMessage = useCallback((role, text) => {
-    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    setMessages(prev => [...prev, { role, text, time }]);
+    const time = new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    setMessages((prev) => [...prev, { role, text, time }]);
   }, []);
 
-  const processAudioRecording = useCallback(async (url) => {
-    setAppStatus('processing');
+  const processAudioRecording = useCallback(
+    async (url) => {
+      setAppStatus("processing");
 
-    try {
-      const response = await fetch(url);
-      const audioBlob = await response.blob();
+      try {
+        const response = await fetch(url);
+        const audioBlob = await response.blob();
 
-      const formData = new FormData();
-      formData.append('audio', audioBlob, 'recording.webm');
+        const formData = new FormData();
+        formData.append("audio", audioBlob, "recording.webm");
 
-      const apiRes = await fetch('http://localhost:8000/query/voice', {
-        method: 'POST',
-        body: formData
-      });
+        const recentHistory = messagesRef.current
+          .slice(-6)
+          .map((m) => ({ role: m.role, text: m.text }));
+        formData.append("history", JSON.stringify(recentHistory));
 
-      if (!apiRes.ok) {
-        throw new Error(`Server returned ${apiRes.status}`);
+        const apiRes = await fetch("http://localhost:8000/query/voice", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!apiRes.ok) {
+          throw new Error(`Server returned ${apiRes.status}`);
+        }
+
+        const data = await apiRes.json();
+
+        if (subtitlesRef.current && data.transcript) {
+          addMessage("user", data.transcript);
+        }
+
+        if (subtitlesRef.current && data.response) {
+          addMessage("ai", data.response);
+        }
+
+        setAppStatus("ready");
+      } catch (error) {
+        console.error("Speech processing error:", error);
+        if (subtitlesRef.current) {
+          addMessage(
+            "ai",
+            "Sorry, I had trouble connecting to the backend server to process your voice.",
+          );
+        }
+        setAppStatus("ready");
       }
-
-      const data = await apiRes.json();
-
-      if (subtitlesRef.current && data.transcript) {
-        addMessage('user', data.transcript);
-      }
-
-      if (subtitlesRef.current && data.response) {
-        addMessage('ai', data.response);
-      }
-
-      setAppStatus('ready');
-
-    } catch (error) {
-      console.error("Speech processing error:", error);
-      if (subtitlesRef.current) {
-        addMessage('ai', "Sorry, I had trouble connecting to the backend server to process your voice.");
-      }
-      setAppStatus('ready');
-    }
-  }, [addMessage]);
+    },
+    [addMessage],
+  );
 
   useEffect(() => {
-    localStorage.setItem('endee_subtitles', JSON.stringify(subtitlesEnabled));
+    localStorage.setItem("endee_subtitles", JSON.stringify(subtitlesEnabled));
   }, [subtitlesEnabled]);
 
   useEffect(() => {
-    localStorage.setItem('endee_docLoaded', docLoaded);
+    localStorage.setItem("endee_docLoaded", docLoaded);
   }, [docLoaded]);
 
   useEffect(() => {
-    if (appStatus === 'idle' || appStatus === 'ready') {
-      localStorage.setItem('endee_appStatus', appStatus);
+    if (appStatus === "idle" || appStatus === "ready") {
+      localStorage.setItem("endee_appStatus", appStatus);
     }
   }, [appStatus]);
 
   useEffect(() => {
-    localStorage.setItem('endee_messages', JSON.stringify(messages));
+    localStorage.setItem("endee_messages", JSON.stringify(messages));
   }, [messages]);
 
   useEffect(() => {
-    localStorage.setItem('endee_docSummary', docSummary);
+    localStorage.setItem("endee_docSummary", docSummary);
   }, [docSummary]);
 
   useEffect(() => {
     if (isRecording) {
-      setAppStatus('recording');
+      setAppStatus("recording");
     }
   }, [isRecording]);
 
   useEffect(() => {
-    if (audioUrl && !isRecording && appStatusRef.current === 'recording') {
+    if (audioUrl && !isRecording && appStatusRef.current === "recording") {
       processAudioRecording(audioUrl);
     }
   }, [audioUrl, isRecording, processAudioRecording]);
@@ -122,16 +133,16 @@ const VoiceRagApp = () => {
   const handleMicClick = () => {
     if (!docLoaded) return;
 
-    if (appStatus === 'ready' || appStatus === 'idle') {
+    if (appStatus === "ready" || appStatus === "idle") {
       startRecording();
-    } else if (appStatus === 'recording') {
+    } else if (appStatus === "recording") {
       stopRecording();
     }
   };
 
   const handleClearData = async () => {
     try {
-      await fetch('http://localhost:8000/clear', { method: 'POST' });
+      await fetch("http://localhost:8000/clear", { method: "POST" });
     } catch (e) {
       console.error("Failed to clear backend DB", e);
     }
@@ -147,38 +158,41 @@ const VoiceRagApp = () => {
       <div className="bg-orb orb-3"></div>
 
       <div className="app-wrapper">
-        <AppHeader 
-          subtitlesEnabled={subtitlesEnabled} 
-          setSubtitlesEnabled={setSubtitlesEnabled} 
+        <AppHeader
+          subtitlesEnabled={subtitlesEnabled}
+          setSubtitlesEnabled={setSubtitlesEnabled}
           onClearData={handleClearData}
         />
-        
-        <UploadZone 
+
+        <UploadZone
           onUploadComplete={(isSuccess, summary) => {
             setDocLoaded(isSuccess);
             if (isSuccess && summary) {
-               setDocSummary(summary);
-               if (subtitlesEnabled) {
-                 addMessage('ai', `Document loaded successfully! Here is a quick summary:\n\n${summary}`);
-               }
+              setDocSummary(summary);
+              if (subtitlesEnabled) {
+                addMessage(
+                  "ai",
+                  `Document loaded successfully! Here is a quick summary:\n\n${summary}`,
+                );
+              }
             }
-            if (isSuccess && appStatus === 'idle') setAppStatus('ready');
-          }} 
+            if (isSuccess && appStatus === "idle") setAppStatus("ready");
+          }}
         />
-        
-        <ConversationArea 
-          messages={messages} 
-          isThinking={appStatus === 'processing'} 
+
+        <ConversationArea
+          messages={messages}
+          isThinking={appStatus === "processing"}
         />
-        
-        <MicFooter 
-          status={appStatus} 
-          docLoaded={docLoaded} 
-          onMicClick={handleMicClick} 
+
+        <MicFooter
+          status={appStatus}
+          docLoaded={docLoaded}
+          onMicClick={handleMicClick}
         />
       </div>
 
-      <audio ref={audioPlayerRef} style={{ display: 'none' }}></audio>
+      <audio ref={audioPlayerRef} style={{ display: "none" }}></audio>
     </div>
   );
 };
