@@ -1064,3 +1064,65 @@
 .mic-btn:disabled:not(.recording) .mic-ring-2 {
   opacity: 0;
 }
+
+/* type selector */
+.type-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  flex-shrink: 0;
+}
+
+.type-label {
+  font-size: 0.73rem;
+  color: var(--text-3);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.type-select {
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-hv);
+  color: var(--text-2);
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: border-color 0.2s;
+  outline: none;
+}
+
+.type-select:hover {
+  border-color: var(--accent);
+}
+
+.type-select:focus {
+  border-color: var(--accent);
+}
+
+.type-select option {
+  background: var(--surface);
+  color: var(--text-1);
+}
+
+/* type selector inline for text tab */
+.type-selector-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 480px) {
+  .type-selector {
+    flex-wrap: wrap;
+  }
+
+  .type-selector-inline {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}

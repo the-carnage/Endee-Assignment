@@ -9,6 +9,7 @@ const UploadZone = ({ onUploadComplete }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [textContent, setTextContent] = useState("");
   const [textTitle, setTextTitle] = useState("");
+  const [taskType, setTaskType] = useState("RETRIEVAL_DOCUMENT");
 
   const fileInputRef = useRef(null);
   const sourceKnobRef = useRef(null);
@@ -48,11 +49,12 @@ const UploadZone = ({ onUploadComplete }) => {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ text: fileOrText }),
+          body: JSON.stringify({ text: fileOrText, task_type: taskType }),
         });
       } else {
         const formData = new FormData();
         formData.append("file", fileOrText);
+        formData.append("task_type", taskType);
         response = await fetch("http://localhost:8000/ingest/file", {
           method: "POST",
           body: formData,
@@ -276,6 +278,18 @@ const UploadZone = ({ onUploadComplete }) => {
               Your document will be indexed for voice queries
             </span>
           </div>
+          <div className="type-selector">
+            <label htmlFor="taskTypeSelect" className="type-label">Embedding Type:</label>
+            <select
+              id="taskTypeSelect"
+              value={taskType}
+              onChange={(e) => setTaskType(e.target.value)}
+              className="type-select"
+            >
+              <option value="RETRIEVAL_DOCUMENT">Document</option>
+              <option value="RETRIEVAL_QUERY">Query</option>
+            </select>
+          </div>
           <button
             className="upload-btn"
             onClick={() => fileInputRef.current?.click()}
@@ -309,6 +323,18 @@ const UploadZone = ({ onUploadComplete }) => {
               Your image will be analyzed for voice queries
             </span>
           </div>
+          <div className="type-selector">
+            <label htmlFor="taskTypeSelectImage" className="type-label">Embedding Type:</label>
+            <select
+              id="taskTypeSelectImage"
+              value={taskType}
+              onChange={(e) => setTaskType(e.target.value)}
+              className="type-select"
+            >
+              <option value="RETRIEVAL_DOCUMENT">Document</option>
+              <option value="RETRIEVAL_QUERY">Query</option>
+            </select>
+          </div>
           <button
             className="upload-btn"
             onClick={() => fileInputRef.current?.click()}
@@ -340,10 +366,22 @@ const UploadZone = ({ onUploadComplete }) => {
               {textContent.length.toLocaleString()} character
               {textContent.length !== 1 ? "s" : ""}
             </span>
-            <button className="upload-btn" onClick={handleTextIngest}>
-              Index Text
-            </button>
+            <div className="type-selector-inline">
+              <label htmlFor="taskTypeSelectText" className="type-label">Embedding Type:</label>
+              <select
+                id="taskTypeSelectText"
+                value={taskType}
+                onChange={(e) => setTaskType(e.target.value)}
+                className="type-select"
+              >
+                <option value="RETRIEVAL_DOCUMENT">Document</option>
+                <option value="RETRIEVAL_QUERY">Query</option>
+              </select>
+            </div>
           </div>
+          <button className="upload-btn" onClick={handleTextIngest}>
+            Index Text
+          </button>
         </div>
       )}
 

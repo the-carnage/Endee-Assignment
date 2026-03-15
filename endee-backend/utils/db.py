@@ -31,7 +31,7 @@ def _ensure_index():
         raise RuntimeError(f"Failed to create Endee index: {resp.text}")
 
 
-def add_chunks_to_db(chunks: list[str], source_id: str) -> int:
+def add_chunks_to_db(chunks: list[str], source_id: str, task_type: str = "RETRIEVAL_DOCUMENT") -> int:
     from utils.llm import generate_embedding
 
     clear_db()
@@ -41,7 +41,7 @@ def add_chunks_to_db(chunks: list[str], source_id: str) -> int:
 
     vectors = []
     for i, chunk in enumerate(chunks):
-        embedding = generate_embedding(chunk, task_type="RETRIEVAL_DOCUMENT")
+        embedding = generate_embedding(chunk, task_type=task_type)
         if not embedding:
             continue
         vectors.append({

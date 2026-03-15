@@ -31,6 +31,7 @@ app.add_middleware(
 
 class TextIngestRequest(BaseModel):
     text: str
+    task_type: str = "RETRIEVAL_DOCUMENT"
 
 class QueryRequest(BaseModel):
     text: str
@@ -47,7 +48,7 @@ async def ingest_text(request: TextIngestRequest):
 
     source_id = str(uuid.uuid4())
     chunks = chunk_text(request.text)
-    num_indexed = add_chunks_to_db(chunks, source_id)
+    num_indexed = add_chunks_to_db(chunks, source_id, request.task_type)
     summary = generate_summary(request.text)
 
     return {
@@ -58,7 +59,7 @@ async def ingest_text(request: TextIngestRequest):
     }
 
 @app.post("/ingest/file")
-async def ingest_file(file: UploadFile = File(...)):
+async def ingest_file(file: UploadFile = File(...), task_type: str = Form(default="RETRIEVAL_DOCUMENT")):
     content = await file.read()
     filename = file.filename.lower()
 
@@ -75,7 +76,7 @@ async def ingest_file(file: UploadFile = File(...)):
 
     source_id = str(uuid.uuid4())
     chunks = chunk_text(extracted_text)
-    num_indexed = add_chunks_to_db(chunks, source_id)
+    num_indexed = add_chunks_to_db(chunks, source_id, task_type)
     summary = generate_summary(extracted_text)
 
     return {

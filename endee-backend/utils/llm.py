@@ -1,20 +1,29 @@
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
+from openai import OpenAI
 
 load_dotenv()
 
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 GEMINI_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
 if GEMINI_API_KEY and GEMINI_API_KEY != "your_gemini_api_key_here":
     genai.configure(api_key=GEMINI_API_KEY)
 else:
-    print("WARNING: GOOGLE_API_KEY is not set or is invalid.")
+    print("WARNING: GOOGLE_API_KEY is not set. Embeddings will not work.")
 
-GEMINI_MODEL = "gemini-flash"
+if GROQ_API_KEY and GROQ_API_KEY != "your_groq_api_key_here":
+    groq_client = OpenAI(
+        api_key=GROQ_API_KEY,
+        base_url="https://api.groq.com/openai/v1"
+    )
+else:
+    groq_client = None
+    print("WARNING: GROQ_API_KEY is not set. LLM queries will not work.")
+
+GROQ_MODEL = "openai/gpt-oss-120b"
 GEMINI_EMBEDDING_MODEL = "models/gemini-embedding-001"
-
-model = genai.GenerativeModel(GEMINI_MODEL)
 
 def generate_embedding(text: str, task_type: str = "RETRIEVAL_DOCUMENT") -> list:
     if not GEMINI_API_KEY or GEMINI_API_KEY == "your_gemini_api_key_here":
@@ -32,22 +41,25 @@ def generate_embedding(text: str, task_type: str = "RETRIEVAL_DOCUMENT") -> list
         return []
 
 def generate_summary(text: str) -> str:
-    if not GEMINI_API_KEY or GEMINI_API_KEY == "your_gemini_api_key_here":
+    if not groq_client:
         return "Backend API Key missing or invalid. Upload successful but summary unavailable."
 
     prompt_text = text[:15000] if len(text) > 15000 else text
-
     prompt = f"Summarise the following text in 2-3 sentences:\n\n{prompt_text}"
 
     try:
-        response = model.generate_content(prompt)
-        return response.text.strip()
+        response = groq_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+        )
+        return response.choices[0].message.content.strip()
     except Exception as e:
         print(f"Error generating summary: {e}")
         return f"Error: {str(e)}"
 
 def rewrite_query(query: str, history: list = None) -> str:
-    if not history or not GEMINI_API_KEY or GEMINI_API_KEY == "your_gemini_api_key_here":
+    if not history or not groq_client:
         return query
 
     lines = []
@@ -65,14 +77,18 @@ def rewrite_query(query: str, history: list = None) -> str:
     )
 
     try:
-        response = model.generate_content(prompt)
-        rewritten = response.text.strip()
+        response = groq_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5,
+        )
+        rewritten = response.choices[0].message.content.strip()
         return rewritten if rewritten else query
     except Exception:
         return query
 
 def answer_query(query: str, context: str, history: list = None) -> str:
-    if not GEMINI_API_KEY or GEMINI_API_KEY == "your_gemini_api_key_here":
+    if not groq_client:
         return "I cannot answer right now because the backend API key is missing or invalid."
 
     history_block = ""
@@ -91,8 +107,12 @@ def answer_query(query: str, context: str, history: list = None) -> str:
     )
 
     try:
-        response = model.generate_content(prompt)
-        return response.text.strip()
+        response = groq_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+        )
+        return response.choices[0].message.content.strip()
     except Exception as e:
         print(f"Error answering query: {e}")
         return "I'm sorry, I encountered an error while processing your request."
