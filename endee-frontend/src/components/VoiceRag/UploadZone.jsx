@@ -27,22 +27,53 @@ const UploadZone = ({ onUploadComplete }) => {
     }
   }, [activeTab]);
 
-  const simulateProcessing = (chunks, name, metaBuilder) => {
+  const simulateProcessing = async (chunks, fileOrText, metaBuilder, type) => {
     setUploadState('progress');
-    setChunkBadge(`~${chunks} chunks`);
-    if (chunks < 30) setUploadProgressText('Processing... (~30s)');
-    else if (chunks < 50) setUploadProgressText('Processing... (~60s)');
-    else setUploadProgressText('Processing... (~90s)');
+    setChunkBadge(`Indexing...`);
+    setUploadProgressText('Processing on Backend...');
 
-    setTimeout(() => {
-      setChunkBadge(`${chunks} chunks`);
+    try {
+      let response;
+      let data;
+
+      if (type === 'text') {
+        response = await fetch('http://localhost:8000/ingest/text', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ text: fileOrText })
+        });
+      } else {
+        const formData = new FormData();
+        formData.append('file', fileOrText);
+        response = await fetch('http://localhost:8000/ingest/file', {
+          method: 'POST',
+          body: formData
+        });
+      }
+
+      if (!response.ok) {
+        throw new Error(`Server responded with ${response.status}`);
+      }
+
+      data = await response.json();
+      const actualChunks = data.chunks_indexed || chunks;
+      
+      setChunkBadge(`${actualChunks} chunks`);
       setDocInfo({
-        name: name,
-        meta: metaBuilder(chunks)
+        name: type === 'text' ? fileOrText : fileOrText.name,
+        meta: metaBuilder(actualChunks)
       });
       setUploadState('loaded');
-      if (onUploadComplete) onUploadComplete(true);
-    }, 1500);
+      if (onUploadComplete) onUploadComplete(true, data.summary);
+      
+    } catch (error) {
+      console.error("Upload failed:", error);
+      alert("Backend connection failed! Is the FastAPI server running on port 8000?");
+      setUploadState('idle');
+      if (onUploadComplete) onUploadComplete(false, null);
+    }
   };
 
   const handleFileUpload = (file) => {
@@ -53,8 +84,9 @@ const UploadZone = ({ onUploadComplete }) => {
     const estimatedChunks = Math.max(1, Math.ceil(file.size / 15000));
     simulateProcessing(
       estimatedChunks,
-      file.name,
-      (chunks) => `12 pages · ${chunks} chunks indexed`
+      file,
+      (chunks) => `PDF · ${chunks} chunks indexed`,
+      'file'
     );
   };
 
@@ -66,8 +98,9 @@ const UploadZone = ({ onUploadComplete }) => {
     const estimatedChunks = Math.max(1, Math.ceil(file.size / 25000));
     simulateProcessing(
       estimatedChunks,
-      file.name,
-      (chunks) => `${(file.size / 1024).toFixed(1)} KB · Image indexed`
+      file,
+      (chunks) => `${(file.size / 1024).toFixed(1)} KB · Image indexed`,
+      'file'
     );
   };
 
@@ -87,8 +120,9 @@ const UploadZone = ({ onUploadComplete }) => {
     const estimatedChunks = Math.max(1, Math.ceil(content.length / 350));
     simulateProcessing(
       estimatedChunks,
-      title,
-      (chunks) => `${content.length.toLocaleString()} chars · ${chunks} chunks indexed`
+      content,
+      (chunks) => `${content.length.toLocaleString()} chars · ${chunks} chunks indexed`,
+      'text'
     );
   };
 

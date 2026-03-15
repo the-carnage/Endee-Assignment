@@ -21,7 +21,7 @@ const AppHeader = ({ subtitlesEnabled, setSubtitlesEnabled }) => {
         </svg>
       </div>
       <div className="header-text">
-        <h1>Voice RAG Agent</h1>
+        <h1>Note Retriever</h1>
         <p>Powered by Gemini &amp; Whisper</p>
       </div>
       <div className="header-controls">

@@ -11,6 +11,7 @@ const VoiceRagApp = () => {
   const [docLoaded, setDocLoaded] = useState(false);
   const [appStatus, setAppStatus] = useState('idle');
   const [messages, setMessages] = useState([]);
+  const [docSummary, setDocSummary] = useState('');
   
   const audioPlayerRef = useRef(null);
   
@@ -29,7 +30,7 @@ const VoiceRagApp = () => {
 
   useEffect(() => {
     if (audioUrl && !isRecording && appStatus === 'recording') {
-      simulateBackendResponse();
+      processAudioRecording(audioUrl);
     }
   }, [audioUrl, isRecording]);
 
@@ -48,26 +49,46 @@ const VoiceRagApp = () => {
     setMessages(prev => [...prev, { role, text, time }]);
   };
 
-  const simulateBackendResponse = () => {
+  const processAudioRecording = async (url) => {
     setAppStatus('processing');
     
-    setTimeout(() => {
-      if (subtitlesEnabled) {
-        addMessage('user', 'What are the main topics discussed in this document?');
+    try {
+      // Convert the object URL back to a blob to send to the server
+      const response = await fetch(url);
+      const audioBlob = await response.blob();
+      
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'recording.webm');
+      
+      const apiRes = await fetch('http://localhost:8000/query/voice', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!apiRes.ok) {
+        throw new Error(`Server returned ${apiRes.status}`);
       }
-
-      setTimeout(() => {
-        if (subtitlesEnabled) {
-          addMessage('ai', 'Based on the provided context, the main topics are React component architecture, state management strategies, and integrating native web APIs like MediaRecorder seamlessly into a user interface.');
-        }
-        
-        setAppStatus('speaking');
-        
-        setTimeout(() => {
-          setAppStatus('ready');
-        }, 4000);
-      }, 1500);
-    }, 1000);
+      
+      const data = await apiRes.json();
+      
+      if (subtitlesEnabled && data.transcript) {
+        addMessage('user', data.transcript);
+      }
+      
+      if (subtitlesEnabled && data.response) {
+        addMessage('ai', data.response);
+      }
+      
+      // We don't have real TTS generation yet, so we just return to ready
+      setAppStatus('ready');
+      
+    } catch (error) {
+      console.error("Speech processing error:", error);
+      if (subtitlesEnabled) {
+        addMessage('ai', "Sorry, I had trouble connecting to the backend server to process your voice.");
+      }
+      setAppStatus('ready');
+    }
   };
 
   return (
@@ -83,8 +104,14 @@ const VoiceRagApp = () => {
         />
         
         <UploadZone 
-          onUploadComplete={(isSuccess) => {
+          onUploadComplete={(isSuccess, summary) => {
             setDocLoaded(isSuccess);
+            if (isSuccess && summary) {
+               setDocSummary(summary);
+               if (subtitlesEnabled) {
+                 addMessage('ai', `Document loaded successfully! Here is a quick summary:\n\n${summary}`);
+               }
+            }
             if (isSuccess && appStatus === 'idle') setAppStatus('ready');
           }} 
         />
