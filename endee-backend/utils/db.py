@@ -1,43 +1,103 @@
 import os
-from chromadb import PersistentClient
+import requests
+import msgpack
+from dotenv import load_dotenv
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(BASE_DIR, "endee_db")
+load_dotenv()
 
-client = PersistentClient(path=DB_PATH)
+ENDEE_BASE_URL = os.environ.get("ENDEE_BASE_URL", "http://localhost:8080")
+ENDEE_AUTH_TOKEN = os.environ.get("ENDEE_AUTH_TOKEN", "")
 
-collection = client.get_or_create_collection(
-    name="document_collection",
-    metadata={"hnsw:space": "cosine"}
-)
+INDEX_NAME = "document_collection"
+EMBEDDING_DIM = 768
 
-def add_chunks_to_db(chunks: list[str], source_id: str):
-    existing_data = collection.get()
-    if existing_data and existing_data["ids"]:
-        collection.delete(ids=existing_data["ids"])
+
+def _headers():
+    h = {"Content-Type": "application/json"}
+    if ENDEE_AUTH_TOKEN:
+        h["Authorization"] = ENDEE_AUTH_TOKEN
+    return h
+
+
+def _ensure_index():
+    url = f"{ENDEE_BASE_URL}/api/v1/index/create"
+    payload = {
+        "index_name": INDEX_NAME,
+        "dim": EMBEDDING_DIM,
+        "space_type": "cosine",
+    }
+    resp = requests.post(url, json=payload, headers=_headers())
+    if resp.status_code not in (200, 409):
+        raise RuntimeError(f"Failed to create Endee index: {resp.text}")
+
+
+def add_chunks_to_db(chunks: list[str], source_id: str) -> int:
+    from utils.llm import generate_embedding
+
+    clear_db()
 
     if not chunks:
         return 0
 
-    ids = [f"{source_id}_{i}" for i in range(len(chunks))]
-    metadatas = [{"source": source_id, "chunk_index": i} for i in range(len(chunks))]
+    vectors = []
+    for i, chunk in enumerate(chunks):
+        embedding = generate_embedding(chunk, task_type="RETRIEVAL_DOCUMENT")
+        if not embedding:
+            continue
+        vectors.append({
+            "id": f"{source_id}_{i}",
+            "vector": embedding,
+            "meta": chunk,
+        })
 
-    collection.add(
-        documents=chunks,
-        ids=ids,
-        metadatas=metadatas
-    )
+    if not vectors:
+        return 0
 
-    return len(chunks)
+    url = f"{ENDEE_BASE_URL}/api/v1/index/{INDEX_NAME}/vector/insert"
+    resp = requests.post(url, json=vectors, headers=_headers())
+    if resp.status_code != 200:
+        raise RuntimeError(f"Failed to insert vectors into Endee: {resp.text}")
+
+    return len(vectors)
+
 
 def query_db(query_text: str, n_results: int = 4) -> str:
-    results = collection.query(
-        query_texts=[query_text],
-        n_results=n_results
-    )
+    from utils.llm import generate_embedding
 
-    if not results or not results["documents"] or not results["documents"][0]:
+    embedding = generate_embedding(query_text, task_type="RETRIEVAL_QUERY")
+    if not embedding:
         return ""
 
-    retrieved_chunks = results["documents"][0]
-    return "\n\n---\n\n".join(retrieved_chunks)
+    url = f"{ENDEE_BASE_URL}/api/v1/index/{INDEX_NAME}/search"
+    payload = {
+        "k": n_results,
+        "vector": embedding,
+    }
+    resp = requests.post(url, json=payload, headers=_headers())
+    if resp.status_code != 200:
+        return ""
+
+    # Response is msgpack-encoded ResultSet.
+    # ResultSet MSGPACK_DEFINE(results) → decoded as [results_list].
+    # VectorResult MSGPACK_DEFINE(similarity, id, meta, filter, norm, vector)
+    # → each result is [similarity, id, meta_bytes, filter, norm, vector].
+    data = msgpack.unpackb(resp.content, raw=False)
+    results_list = data[0] if data else []
+
+    chunks = []
+    for result in results_list:
+        meta = result[2]
+        if isinstance(meta, (bytes, bytearray)):
+            meta = meta.decode("utf-8", errors="replace")
+        if meta:
+            chunks.append(meta)
+
+    return "\n\n---\n\n".join(chunks)
+
+
+def clear_db():
+    url = f"{ENDEE_BASE_URL}/api/v1/index/{INDEX_NAME}/delete"
+    resp = requests.delete(url, headers=_headers())
+    if resp.status_code not in (200, 404):
+        raise RuntimeError(f"Failed to delete Endee index: {resp.text}")
+    _ensure_index()
