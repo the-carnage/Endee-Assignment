@@ -148,6 +148,46 @@ const VoiceRagApp = () => {
     }
   };
 
+  const processTextQuery = useCallback(
+    async (text) => {
+      if (!text.trim() || !docLoaded) return;
+
+      addMessage("user", text);
+      setAppStatus("processing");
+
+      try {
+        const recentHistory = messagesRef.current
+          .slice(-6)
+          .map((m) => ({ role: m.role, text: m.text }));
+
+        const apiRes = await fetch("http://localhost:8000/query/text", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, history: recentHistory }),
+        });
+
+        if (!apiRes.ok) {
+          const errData = await apiRes.json().catch(() => null);
+          const detail = errData?.detail || `Server returned ${apiRes.status}`;
+          throw new Error(detail);
+        }
+
+        const data = await apiRes.json();
+
+        if (data.response) {
+          addMessage("ai", data.response);
+        }
+
+        setAppStatus("ready");
+      } catch (error) {
+        console.error("Text query error:", error);
+        addMessage("ai", "Sorry, I had trouble processing your query. Please try again.");
+        setAppStatus("ready");
+      }
+    },
+    [addMessage, docLoaded],
+  );
+
   const handleClearData = async () => {
     try {
       await fetch("http://localhost:8000/clear", { method: "POST" });
@@ -197,6 +237,7 @@ const VoiceRagApp = () => {
           status={appStatus}
           docLoaded={docLoaded}
           onMicClick={handleMicClick}
+          onTextSubmit={processTextQuery}
         />
       </div>
 
