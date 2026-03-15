@@ -82,7 +82,14 @@ def query_db(query_text: str, n_results: int = 4) -> str:
     # VectorResult MSGPACK_DEFINE(similarity, id, meta, filter, norm, vector)
     # → each result is [similarity, id, meta_bytes, filter, norm, vector].
     data = msgpack.unpackb(resp.content, raw=False)
-    results_list = data[0] if data else []
+    if not data:
+        results_list = []
+    elif data[0] and isinstance(data[0][0], float):
+        # data is already [VectorResult1, VectorResult2, ...]
+        results_list = data
+    else:
+        # data is [[VectorResult1, VectorResult2, ...]]
+        results_list = data[0] if data[0] else []
 
     chunks = []
     for result in results_list:

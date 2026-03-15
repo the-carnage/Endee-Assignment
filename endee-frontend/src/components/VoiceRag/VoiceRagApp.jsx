@@ -31,11 +31,17 @@ const VoiceRagApp = () => {
   const subtitlesRef = useRef(subtitlesEnabled);
   const messagesRef = useRef(messages);
 
-  useEffect(() => { appStatusRef.current = appStatus; }, [appStatus]);
-  useEffect(() => { subtitlesRef.current = subtitlesEnabled; }, [subtitlesEnabled]);
-  useEffect(() => { messagesRef.current = messages; }, [messages]);
+  useEffect(() => {
+    appStatusRef.current = appStatus;
+  }, [appStatus]);
+  useEffect(() => {
+    subtitlesRef.current = subtitlesEnabled;
+  }, [subtitlesEnabled]);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
-  const { isRecording, audioUrl, startRecording, stopRecording } =
+  const { isRecording, audioUrl, audioExt, startRecording, stopRecording } =
     useVoiceRecorder();
 
   const addMessage = useCallback((role, text) => {
@@ -55,7 +61,7 @@ const VoiceRagApp = () => {
         const audioBlob = await response.blob();
 
         const formData = new FormData();
-        formData.append("audio", audioBlob, "recording.webm");
+        formData.append("audio", audioBlob, `recording.${audioExt}`);
 
         const recentHistory = messagesRef.current
           .slice(-6)
@@ -68,7 +74,9 @@ const VoiceRagApp = () => {
         });
 
         if (!apiRes.ok) {
-          throw new Error(`Server returned ${apiRes.status}`);
+          const errData = await apiRes.json().catch(() => null);
+          const detail = errData?.detail || `Server returned ${apiRes.status}`;
+          throw new Error(detail);
         }
 
         const data = await apiRes.json();
@@ -85,10 +93,10 @@ const VoiceRagApp = () => {
       } catch (error) {
         console.error("Speech processing error:", error);
         if (subtitlesRef.current) {
-          addMessage(
-            "ai",
-            "Sorry, I had trouble connecting to the backend server to process your voice.",
-          );
+          const msg = error.message?.includes("Failed to load audio")
+            ? "Sorry, I couldn't process that audio. Please try recording again."
+            : "Sorry, I had trouble processing your voice query. Please try again.";
+          addMessage("ai", msg);
         }
         setAppStatus("ready");
       }

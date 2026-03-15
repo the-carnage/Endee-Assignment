@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from utils.db import add_chunks_to_db, query_db, clear_db
 from utils.extractors import extract_from_pdf, extract_from_image, chunk_text
-from utils.llm import generate_summary, answer_query
+from utils.llm import generate_summary, answer_query, rewrite_query
 
 try:
     import whisper
@@ -91,7 +91,8 @@ async def query_text(request: QueryRequest):
     if not request.text:
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
 
-    context = query_db(request.text, n_results=3)
+    search_query = rewrite_query(request.text, request.history)
+    context = query_db(search_query, n_results=3)
     if not context:
         return {"response": "I couldn't find any relevant information in the uploaded documents."}
 
@@ -117,7 +118,8 @@ async def query_voice(audio: UploadFile = File(...), history: str = Form(default
         chat_history = []
 
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp:
+        ext = os.path.splitext(audio.filename or "recording.webm")[1] or ".webm"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
             tmp.write(await audio.read())
             tmp_path = tmp.name
 
@@ -128,7 +130,8 @@ async def query_voice(audio: UploadFile = File(...), history: str = Form(default
         if not transcript:
             return {"transcript": "", "response": "Sorry, I couldn't hear any speech."}
 
-        context = query_db(transcript, n_results=3)
+        search_query = rewrite_query(transcript, chat_history)
+        context = query_db(search_query, n_results=3)
         if not context:
             answer = "I couldn't find any relevant information in the uploaded documents."
         else:

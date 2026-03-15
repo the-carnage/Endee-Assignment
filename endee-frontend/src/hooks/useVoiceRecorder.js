@@ -1,10 +1,21 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback } from "react";
+
+const getMimeAndExt = () => {
+  if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus"))
+    return { mimeType: "audio/webm;codecs=opus", ext: "webm" };
+  if (MediaRecorder.isTypeSupported("audio/webm"))
+    return { mimeType: "audio/webm", ext: "webm" };
+  if (MediaRecorder.isTypeSupported("audio/mp4"))
+    return { mimeType: "audio/mp4", ext: "mp4" };
+  return { mimeType: "", ext: "webm" };
+};
 
 export const useVoiceRecorder = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [audioUrl, setAudioUrl] = useState(null);
+  const [audioExt, setAudioExt] = useState("webm");
   const [recordingTime, setRecordingTime] = useState(0);
-  
+
   const mediaRecorder = useRef(null);
   const audioChunks = useRef([]);
   const timerInterval = useRef(null);
@@ -12,7 +23,13 @@ export const useVoiceRecorder = () => {
   const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder.current = new MediaRecorder(stream);
+
+      const { mimeType, ext } = getMimeAndExt();
+      setAudioExt(ext);
+
+      mediaRecorder.current = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
       audioChunks.current = [];
 
       mediaRecorder.current.ondataavailable = (event) => {
@@ -22,7 +39,9 @@ export const useVoiceRecorder = () => {
       };
 
       mediaRecorder.current.onstop = () => {
-        const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
+        const actualMime =
+          mediaRecorder.current?.mimeType || mimeType || "audio/webm";
+        const audioBlob = new Blob(audioChunks.current, { type: actualMime });
         const url = URL.createObjectURL(audioBlob);
         setAudioUrl(url);
       };
@@ -35,7 +54,7 @@ export const useVoiceRecorder = () => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
     } catch (error) {
-      console.error('Error accessing microphone:', error);
+      console.error("Error accessing microphone:", error);
     }
   }, []);
 
@@ -56,6 +75,7 @@ export const useVoiceRecorder = () => {
   return {
     isRecording,
     audioUrl,
+    audioExt,
     recordingTime,
     startRecording,
     stopRecording,

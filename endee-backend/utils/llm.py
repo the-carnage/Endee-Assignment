@@ -46,6 +46,31 @@ def generate_summary(text: str) -> str:
         print(f"Error generating summary: {e}")
         return f"Error: {str(e)}"
 
+def rewrite_query(query: str, history: list = None) -> str:
+    if not history or not GEMINI_API_KEY or GEMINI_API_KEY == "your_gemini_api_key_here":
+        return query
+
+    lines = []
+    for msg in history[-6:]:
+        role = "User" if msg.get("role") == "user" else "Assistant"
+        lines.append(f"{role}: {msg.get('text', '')}")
+    history_text = "\n".join(lines)
+
+    prompt = (
+        f"Given this conversation:\n{history_text}\n\n"
+        f"The user's latest message is: \"{query}\"\n\n"
+        f"Rewrite it as a single standalone search query that captures the full intent, "
+        f"resolving all pronouns and references from the conversation. "
+        f"Return ONLY the rewritten query, nothing else."
+    )
+
+    try:
+        response = model.generate_content(prompt)
+        rewritten = response.text.strip()
+        return rewritten if rewritten else query
+    except Exception:
+        return query
+
 def answer_query(query: str, context: str, history: list = None) -> str:
     if not GEMINI_API_KEY or GEMINI_API_KEY == "your_gemini_api_key_here":
         return "I cannot answer right now because the backend API key is missing or invalid."
