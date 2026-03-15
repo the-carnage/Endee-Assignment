@@ -107,6 +107,18 @@ async def query_text(request: QueryRequest):
     answer = answer_query(request.text, context)
     return {"response": answer}
 
+@app.post("/clear")
+async def clear_database():
+    """Clears all documents from the vector database."""
+    try:
+        from utils.db import collection
+        existing_data = collection.get()
+        if existing_data and existing_data["ids"]:
+            collection.delete(ids=existing_data["ids"])
+        return {"status": "success", "message": "Database cleared."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/query/voice")
 async def query_voice(audio: UploadFile = File(...)):
     """Transcribes audio, queries the database, and returns the LLM answer."""
