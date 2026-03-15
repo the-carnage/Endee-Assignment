@@ -13,7 +13,7 @@ from utils.llm import generate_summary, answer_query, rewrite_query
 
 try:
     import whisper
-    whisper_model = whisper.load_model("small")
+    whisper_model = whisper.load_model("medium")
     HAS_WHISPER = True
 except ImportError:
     HAS_WHISPER = False
