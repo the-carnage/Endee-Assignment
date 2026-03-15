@@ -1,8 +1,6 @@
 import React from 'react';
 
 const MicFooter = ({ status, docLoaded, onMicClick }) => {
-  // status: 'idle' | 'ready' | 'recording' | 'processing' | 'speaking'
-
   const getStatusText = () => {
     switch(status) {
       case 'idle': return 'Choose a data source to begin';
@@ -19,7 +17,6 @@ const MicFooter = ({ status, docLoaded, onMicClick }) => {
 
   return (
     <>
-      {/* Status bar (moved here for grouping, though original had it separated) */}
       <div className="status-bar">
         <div className={`status-dot ${status}`}></div>
         <span className="status-text">{getStatusText()}</span>

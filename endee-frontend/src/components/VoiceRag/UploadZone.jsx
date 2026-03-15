@@ -1,8 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react';
 
 const UploadZone = ({ onUploadComplete }) => {
-  const [activeTab, setActiveTab] = useState('pdf'); // 'pdf' | 'text'
-  const [uploadState, setUploadState] = useState('idle'); // 'idle' | 'progress' | 'loaded'
+  const [activeTab, setActiveTab] = useState('pdf');
+  const [uploadState, setUploadState] = useState('idle');
   const [uploadProgressText, setUploadProgressText] = useState('Processing...');
   const [chunkBadge, setChunkBadge] = useState('');
   const [docInfo, setDocInfo] = useState({ name: '', meta: '' });
@@ -15,7 +15,6 @@ const UploadZone = ({ onUploadComplete }) => {
   const togglePdfRef = useRef(null);
   const toggleTextRef = useRef(null);
 
-  // Position the knob background
   useEffect(() => {
     const activeBtn = activeTab === 'pdf' ? togglePdfRef.current : toggleTextRef.current;
     if (activeBtn && sourceKnobRef.current) {
@@ -31,7 +30,6 @@ const UploadZone = ({ onUploadComplete }) => {
     else if (chunks < 50) setUploadProgressText('Processing... (~60s)');
     else setUploadProgressText('Processing... (~90s)');
 
-    // Simulate backend processing delay
     setTimeout(() => {
       setChunkBadge(`${chunks} chunks`);
       setDocInfo({
@@ -40,7 +38,7 @@ const UploadZone = ({ onUploadComplete }) => {
       });
       setUploadState('loaded');
       if (onUploadComplete) onUploadComplete(true);
-    }, 1500); // Mock 1.5s delay
+    }, 1500);
   };
 
   const handleFileUpload = (file) => {
@@ -52,7 +50,7 @@ const UploadZone = ({ onUploadComplete }) => {
     simulateProcessing(
       estimatedChunks, 
       file.name, 
-      (chunks) => `12 pages · ${chunks} chunks indexed` // Mocked page count
+      (chunks) => `12 pages · ${chunks} chunks indexed`
     );
   };
 
@@ -107,11 +105,10 @@ const UploadZone = ({ onUploadComplete }) => {
         hidden 
         onChange={(e) => {
           if (e.target.files[0]) handleFileUpload(e.target.files[0]);
-          e.target.value = ''; // reset
+          e.target.value = '';
         }}
       />
 
-      {/* Pill Toggle */}
       {uploadState !== 'loaded' && (
         <div className="source-toggle">
           <button 
@@ -142,7 +139,6 @@ const UploadZone = ({ onUploadComplete }) => {
         </div>
       )}
 
-      {/* Idle PDF */}
       {uploadState === 'idle' && activeTab === 'pdf' && (
         <div className="upload-idle">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -159,7 +155,6 @@ const UploadZone = ({ onUploadComplete }) => {
         </div>
       )}
 
-      {/* Idle Text */}
       {uploadState === 'idle' && activeTab === 'text' && (
         <div className="upload-text-idle">
           <input
@@ -186,7 +181,6 @@ const UploadZone = ({ onUploadComplete }) => {
         </div>
       )}
 
-      {/* Uploading Progress */}
       {uploadState === 'progress' && (
         <div className="upload-progress">
           <div className="spinner"></div>
@@ -197,7 +191,6 @@ const UploadZone = ({ onUploadComplete }) => {
         </div>
       )}
 
-      {/* Loaded State */}
       {uploadState === 'loaded' && (
         <div className="upload-loaded">
           <div className="doc-icon">

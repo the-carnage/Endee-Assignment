@@ -3,7 +3,6 @@ import React, { useEffect, useRef } from 'react';
 const ConversationArea = ({ messages, isThinking }) => {
   const scrollRef = useRef(null);
 
-  // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
