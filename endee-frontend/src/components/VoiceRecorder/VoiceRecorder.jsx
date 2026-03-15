@@ -1,5 +1,5 @@
-import { useVoiceRecorder } from '../../hooks/useVoiceRecorder';
-import './VoiceRecorder.css';
+import { useVoiceRecorder } from "../../hooks/useVoiceRecorder";
+import "./VoiceRecorder.css";
 
 const VoiceRecorder = () => {
   const {
@@ -14,17 +14,17 @@ const VoiceRecorder = () => {
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   return (
     <div className="voice-recorder-container">
       <h3>Voice Recorder</h3>
-      
+
       <div className="recorder-controls">
         {!isRecording ? (
-          <button 
-            className="record-btn start" 
+          <button
+            className="record-btn start"
             onClick={startRecording}
             disabled={!!audioUrl}
           >
@@ -35,7 +35,7 @@ const VoiceRecorder = () => {
             Stop Recording
           </button>
         )}
-        
+
         {audioUrl && (
           <button className="record-btn clear" onClick={clearRecording}>
             Clear
@@ -50,7 +50,7 @@ const VoiceRecorder = () => {
             Recording... {formatTime(recordingTime)}
           </div>
         )}
-        
+
         {audioUrl && !isRecording && (
           <div className="audio-preview">
             <audio src={audioUrl} controls />

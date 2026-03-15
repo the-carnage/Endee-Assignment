@@ -1,17 +1,24 @@
 const MicFooter = ({ status, docLoaded, onMicClick }) => {
   const getStatusText = () => {
-    switch(status) {
-      case 'idle': return 'Choose a data source to begin';
-      case 'ready': return 'Ready';
-      case 'recording': return 'Recording...';
-      case 'processing': return 'Transcribing...';
-      case 'speaking': return 'Speaking...';
-      default: return 'Ready';
+    switch (status) {
+      case "idle":
+        return "Choose a data source to begin";
+      case "ready":
+        return "Ready";
+      case "recording":
+        return "Recording...";
+      case "processing":
+        return "Transcribing...";
+      case "speaking":
+        return "Speaking...";
+      default:
+        return "Ready";
     }
   };
 
-  const isBtnDisabled = status === 'processing' || status === 'speaking' || !docLoaded;
-  const isRecording = status === 'recording';
+  const isBtnDisabled =
+    status === "processing" || status === "speaking" || !docLoaded;
+  const isRecording = status === "recording";
 
   return (
     <>
@@ -21,13 +28,24 @@ const MicFooter = ({ status, docLoaded, onMicClick }) => {
       </div>
 
       <footer className="mic-footer">
-        <div className={`waveform ${isRecording ? 'active' : ''}`} id="waveform">
-          <span></span><span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span><span></span>
+        <div
+          className={`waveform ${isRecording ? "active" : ""}`}
+          id="waveform"
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
         </div>
-        
-        <button 
-          className={`mic-btn ${status === 'ready' || status === 'idle' ? '' : status}`}
+
+        <button
+          className={`mic-btn ${status === "ready" || status === "idle" ? "" : status}`}
           onClick={onMicClick}
           disabled={isBtnDisabled}
           aria-label={isRecording ? "Stop recording" : "Start recording"}
@@ -61,7 +79,9 @@ const MicFooter = ({ status, docLoaded, onMicClick }) => {
           </svg>
         </button>
         <p className="mic-hint">
-          {docLoaded ? "Click to toggle recording" : "Upload a PDF or paste text first"}
+          {docLoaded
+            ? "Click to toggle recording"
+            : "Upload a PDF or paste text first"}
         </p>
       </footer>
     </>

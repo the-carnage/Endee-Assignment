@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
 
 const ConversationArea = ({ messages, isThinking }) => {
   const scrollRef = useRef(null);
@@ -14,7 +14,16 @@ const ConversationArea = ({ messages, isThinking }) => {
       {messages.length === 0 && !isThinking ? (
         <div className="empty-state">
           <div className="empty-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
           </div>
@@ -26,7 +35,7 @@ const ConversationArea = ({ messages, isThinking }) => {
           {messages.map((msg, idx) => (
             <div key={idx} className={`chat-bubble ${msg.role}`}>
               <div className="bubble-avatar">
-                {msg.role === 'user' ? 'You' : 'AI'}
+                {msg.role === "user" ? "You" : "AI"}
               </div>
               <div className="bubble-body">
                 <div className="bubble-text">{msg.text}</div>
@@ -40,7 +49,11 @@ const ConversationArea = ({ messages, isThinking }) => {
               <div className="bubble-avatar">AI</div>
               <div className="bubble-body">
                 <div className="bubble-text">
-                  <div className="dots"><span></span><span></span><span></span></div>
+                  <div className="dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
                 </div>
               </div>
             </div>
