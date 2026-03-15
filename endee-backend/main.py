@@ -7,7 +7,7 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from utils.db import add_chunks_to_db, query_db
+from utils.db import add_chunks_to_db, query_db, clear_db
 from utils.extractors import extract_from_pdf, extract_from_image, chunk_text
 from utils.llm import generate_summary, answer_query
 
@@ -101,10 +101,7 @@ async def query_text(request: QueryRequest):
 @app.post("/clear")
 async def clear_database():
     try:
-        from utils.db import collection
-        existing_data = collection.get()
-        if existing_data and existing_data["ids"]:
-            collection.delete(ids=existing_data["ids"])
+        clear_db()
         return {"status": "success", "message": "Database cleared."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

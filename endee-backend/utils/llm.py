@@ -11,7 +11,25 @@ if GEMINI_API_KEY and GEMINI_API_KEY != "your_gemini_api_key_here":
 else:
     print("WARNING: GOOGLE_API_KEY is not set or is invalid.")
 
-model = genai.GenerativeModel('gemini-2.0-flash')
+GEMINI_MODEL = "models/gemini-2.0-pro"
+GEMINI_EMBEDDING_MODEL = "models/gemini-embedding-001"
+
+model = genai.GenerativeModel(GEMINI_MODEL)
+
+def generate_embedding(text: str, task_type: str = "RETRIEVAL_DOCUMENT") -> list:
+    if not GEMINI_API_KEY or GEMINI_API_KEY == "your_gemini_api_key_here":
+        return []
+    try:
+        result = genai.embed_content(
+            model=GEMINI_EMBEDDING_MODEL,
+            content=text,
+            task_type=task_type,
+            output_dimensionality=768,
+        )
+        return result["embedding"]
+    except Exception as e:
+        print(f"Error generating embedding: {e}")
+        return []
 
 def generate_summary(text: str) -> str:
     if not GEMINI_API_KEY or GEMINI_API_KEY == "your_gemini_api_key_here":
