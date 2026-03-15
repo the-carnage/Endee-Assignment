@@ -9,14 +9,18 @@ const UploadZone = ({ onUploadComplete }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [textContent, setTextContent] = useState('');
   const [textTitle, setTextTitle] = useState('');
-  
+
   const fileInputRef = useRef(null);
   const sourceKnobRef = useRef(null);
   const togglePdfRef = useRef(null);
   const toggleTextRef = useRef(null);
+  const toggleImageRef = useRef(null);
 
   useEffect(() => {
-    const activeBtn = activeTab === 'pdf' ? togglePdfRef.current : toggleTextRef.current;
+    let activeBtn = togglePdfRef.current;
+    if (activeTab === 'text') activeBtn = toggleTextRef.current;
+    if (activeTab === 'image') activeBtn = toggleImageRef.current;
+    
     if (activeBtn && sourceKnobRef.current) {
       sourceKnobRef.current.style.width = `${activeBtn.offsetWidth}px`;
       sourceKnobRef.current.style.transform = `translateX(${activeBtn.offsetLeft - 3}px)`;
@@ -48,9 +52,22 @@ const UploadZone = ({ onUploadComplete }) => {
     }
     const estimatedChunks = Math.max(1, Math.ceil(file.size / 15000));
     simulateProcessing(
-      estimatedChunks, 
-      file.name, 
+      estimatedChunks,
+      file.name,
       (chunks) => `12 pages · ${chunks} chunks indexed`
+    );
+  };
+
+  const handleImageUpload = (file) => {
+    if (!file || !file.type.startsWith('image/')) {
+      alert('Please choose an Image file.');
+      return;
+    }
+    const estimatedChunks = Math.max(1, Math.ceil(file.size / 25000));
+    simulateProcessing(
+      estimatedChunks,
+      file.name,
+      (chunks) => `${(file.size / 1024).toFixed(1)} KB · Image indexed`
     );
   };
 
@@ -69,8 +86,8 @@ const UploadZone = ({ onUploadComplete }) => {
 
     const estimatedChunks = Math.max(1, Math.ceil(content.length / 350));
     simulateProcessing(
-      estimatedChunks, 
-      title, 
+      estimatedChunks,
+      title,
       (chunks) => `${content.length.toLocaleString()} chars · ${chunks} chunks indexed`
     );
   };
@@ -88,32 +105,46 @@ const UploadZone = ({ onUploadComplete }) => {
     e.preventDefault();
     setIsDragOver(false);
     const file = e.dataTransfer.files[0];
-    if (file) handleFileUpload(file);
+    if (file) {
+      if (file.type.startsWith('image/')) {
+        setActiveTab('image');
+        handleImageUpload(file);
+      } else if (file.name.toLowerCase().endsWith('.pdf')) {
+        setActiveTab('pdf');
+        handleFileUpload(file);
+      } else {
+        alert('Please drop a PDF or Image file.');
+      }
+    }
   };
 
   return (
-    <section 
+    <section
       className={`upload-zone ${uploadState === 'loaded' ? 'loaded' : ''} ${isDragOver ? 'drag-over' : ''}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        accept=".pdf" 
-        hidden 
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept={activeTab === 'image' ? "image/*" : ".pdf"}
+        hidden
         onChange={(e) => {
-          if (e.target.files[0]) handleFileUpload(e.target.files[0]);
+          const file = e.target.files[0];
+          if (file) {
+            if (activeTab === 'image') handleImageUpload(file);
+            else handleFileUpload(file);
+          }
           e.target.value = '';
         }}
       />
 
       {uploadState !== 'loaded' && (
         <div className="source-toggle">
-          <button 
+          <button
             ref={togglePdfRef}
-            className={`source-opt ${activeTab === 'pdf' ? 'active' : ''}`} 
+            className={`source-opt ${activeTab === 'pdf' ? 'active' : ''}`}
             onClick={() => setActiveTab('pdf')}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -122,9 +153,9 @@ const UploadZone = ({ onUploadComplete }) => {
             </svg>
             PDF
           </button>
-          <button 
+          <button
             ref={toggleTextRef}
-            className={`source-opt ${activeTab === 'text' ? 'active' : ''}`} 
+            className={`source-opt ${activeTab === 'text' ? 'active' : ''}`}
             onClick={() => setActiveTab('text')}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -134,6 +165,18 @@ const UploadZone = ({ onUploadComplete }) => {
               <line x1="13" y1="18" x2="3" y2="18" />
             </svg>
             Text
+          </button>
+          <button
+            ref={toggleImageRef}
+            className={`source-opt ${activeTab === 'image' ? 'active' : ''}`}
+            onClick={() => setActiveTab('image')}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+            Image
           </button>
           <span className="source-knob" ref={sourceKnobRef}></span>
         </div>
@@ -152,6 +195,21 @@ const UploadZone = ({ onUploadComplete }) => {
             <span className="upload-sub">Your document will be indexed for voice queries</span>
           </div>
           <button className="upload-btn" onClick={() => fileInputRef.current?.click()}>Choose PDF</button>
+        </div>
+      )}
+
+      {uploadState === 'idle' && activeTab === 'image' && (
+        <div className="upload-idle">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
+          </svg>
+          <div className="upload-idle-text">
+            <span className="upload-title">Drop an Image or click to upload</span>
+            <span className="upload-sub">Your image will be analyzed for voice queries</span>
+          </div>
+          <button className="upload-btn" onClick={() => fileInputRef.current?.click()}>Choose Image</button>
         </div>
       )}
 
@@ -194,17 +252,32 @@ const UploadZone = ({ onUploadComplete }) => {
       {uploadState === 'loaded' && (
         <div className="upload-loaded">
           <div className="doc-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-            </svg>
+            {activeTab === 'image' ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+            ) : activeTab === 'text' ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="17" y1="10" x2="3" y2="10" />
+                <line x1="21" y1="6" x2="3" y2="6" />
+                <line x1="21" y1="14" x2="3" y2="14" />
+                <line x1="13" y1="18" x2="3" y2="18" />
+              </svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+            )}
           </div>
           <div className="doc-info">
             <span className="doc-name">{docInfo.name}</span>
             <span className="doc-meta">{docInfo.meta}</span>
           </div>
-          <button 
-            className="doc-replace-btn" 
+          <button
+            className="doc-replace-btn"
             title="Upload different source"
             onClick={() => {
               setUploadState('idle');
