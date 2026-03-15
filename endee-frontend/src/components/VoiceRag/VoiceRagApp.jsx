@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import AppHeader from './AppHeader';
 import UploadZone from './UploadZone';
 import ConversationArea from './ConversationArea';
@@ -25,15 +25,66 @@ const VoiceRagApp = () => {
   const [docSummary, setDocSummary] = useState(() => {
     return localStorage.getItem('endee_docSummary') || '';
   });
-  
+
   const audioPlayerRef = useRef(null);
-  
+  const appStatusRef = useRef(appStatus);
+  const subtitlesRef = useRef(subtitlesEnabled);
+
+  // Keep refs in sync with state
+  useEffect(() => { appStatusRef.current = appStatus; }, [appStatus]);
+  useEffect(() => { subtitlesRef.current = subtitlesEnabled; }, [subtitlesEnabled]);
+
   const {
     isRecording,
     audioUrl,
     startRecording,
     stopRecording,
   } = useVoiceRecorder();
+
+  const addMessage = useCallback((role, text) => {
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setMessages(prev => [...prev, { role, text, time }]);
+  }, []);
+
+  const processAudioRecording = useCallback(async (url) => {
+    setAppStatus('processing');
+
+    try {
+      const response = await fetch(url);
+      const audioBlob = await response.blob();
+
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'recording.webm');
+
+      const apiRes = await fetch('http://localhost:8000/query/voice', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!apiRes.ok) {
+        throw new Error(`Server returned ${apiRes.status}`);
+      }
+
+      const data = await apiRes.json();
+
+      if (subtitlesRef.current && data.transcript) {
+        addMessage('user', data.transcript);
+      }
+
+      if (subtitlesRef.current && data.response) {
+        addMessage('ai', data.response);
+      }
+
+      setAppStatus('ready');
+
+    } catch (error) {
+      console.error("Speech processing error:", error);
+      if (subtitlesRef.current) {
+        addMessage('ai', "Sorry, I had trouble connecting to the backend server to process your voice.");
+      }
+      setAppStatus('ready');
+    }
+  }, [addMessage]);
 
   // Persist state to localStorage whenever it changes
   useEffect(() => {
@@ -45,7 +96,6 @@ const VoiceRagApp = () => {
   }, [docLoaded]);
 
   useEffect(() => {
-    // We only want to persist stable states, not intermediate processing states
     if (appStatus === 'idle' || appStatus === 'ready') {
       localStorage.setItem('endee_appStatus', appStatus);
     }
@@ -66,65 +116,18 @@ const VoiceRagApp = () => {
   }, [isRecording]);
 
   useEffect(() => {
-    if (audioUrl && !isRecording && appStatus === 'recording') {
+    if (audioUrl && !isRecording && appStatusRef.current === 'recording') {
       processAudioRecording(audioUrl);
     }
-  }, [audioUrl, isRecording]);
+  }, [audioUrl, isRecording, processAudioRecording]);
 
   const handleMicClick = () => {
     if (!docLoaded) return;
-    
+
     if (appStatus === 'ready' || appStatus === 'idle') {
       startRecording();
     } else if (appStatus === 'recording') {
       stopRecording();
-    }
-  };
-
-  const addMessage = (role, text) => {
-    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    setMessages(prev => [...prev, { role, text, time }]);
-  };
-
-  const processAudioRecording = async (url) => {
-    setAppStatus('processing');
-    
-    try {
-      // Convert the object URL back to a blob to send to the server
-      const response = await fetch(url);
-      const audioBlob = await response.blob();
-      
-      const formData = new FormData();
-      formData.append('audio', audioBlob, 'recording.webm');
-      
-      const apiRes = await fetch('http://localhost:8000/query/voice', {
-        method: 'POST',
-        body: formData
-      });
-      
-      if (!apiRes.ok) {
-        throw new Error(`Server returned ${apiRes.status}`);
-      }
-      
-      const data = await apiRes.json();
-      
-      if (subtitlesEnabled && data.transcript) {
-        addMessage('user', data.transcript);
-      }
-      
-      if (subtitlesEnabled && data.response) {
-        addMessage('ai', data.response);
-      }
-      
-      // We don't have real TTS generation yet, so we just return to ready
-      setAppStatus('ready');
-      
-    } catch (error) {
-      console.error("Speech processing error:", error);
-      if (subtitlesEnabled) {
-        addMessage('ai', "Sorry, I had trouble connecting to the backend server to process your voice.");
-      }
-      setAppStatus('ready');
     }
   };
 

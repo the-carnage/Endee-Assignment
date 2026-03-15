@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 
 const UploadZone = ({ onUploadComplete }) => {
   const [activeTab, setActiveTab] = useState('pdf');
@@ -27,7 +27,7 @@ const UploadZone = ({ onUploadComplete }) => {
     }
   }, [activeTab]);
 
-  const simulateProcessing = async (chunks, fileOrText, metaBuilder, type) => {
+  const simulateProcessing = async (chunks, fileOrText, metaBuilder, type, displayName) => {
     setUploadState('progress');
     setChunkBadge(`Indexing...`);
     setUploadProgressText('Processing on Backend...');
@@ -59,10 +59,10 @@ const UploadZone = ({ onUploadComplete }) => {
 
       data = await response.json();
       const actualChunks = data.chunks_indexed || chunks;
-      
+
       setChunkBadge(`${actualChunks} chunks`);
       setDocInfo({
-        name: type === 'text' ? fileOrText : fileOrText.name,
+        name: displayName || (type === 'text' ? 'Pasted Text' : fileOrText.name),
         meta: metaBuilder(actualChunks)
       });
       setUploadState('loaded');
@@ -99,7 +99,7 @@ const UploadZone = ({ onUploadComplete }) => {
     simulateProcessing(
       estimatedChunks,
       file,
-      (chunks) => `${(file.size / 1024).toFixed(1)} KB · Image indexed`,
+      () => `${(file.size / 1024).toFixed(1)} KB · Image indexed`,
       'file'
     );
   };
@@ -122,7 +122,8 @@ const UploadZone = ({ onUploadComplete }) => {
       estimatedChunks,
       content,
       (chunks) => `${content.length.toLocaleString()} chars · ${chunks} chunks indexed`,
-      'text'
+      'text',
+      title
     );
   };
 
