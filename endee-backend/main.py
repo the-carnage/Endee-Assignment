@@ -13,7 +13,7 @@ from utils.llm import generate_summary, answer_query, rewrite_query
 
 try:
     import whisper
-    whisper_model = whisper.load_model("base")
+    whisper_model = whisper.load_model("small")
     HAS_WHISPER = True
 except ImportError:
     HAS_WHISPER = False
@@ -123,7 +123,7 @@ async def query_voice(audio: UploadFile = File(...), history: str = Form(default
             tmp.write(await audio.read())
             tmp_path = tmp.name
 
-        result = whisper_model.transcribe(tmp_path)
+        result = whisper_model.transcribe(tmp_path, language="en", fp16=False)
         transcript = result["text"].strip()
         os.remove(tmp_path)
 
