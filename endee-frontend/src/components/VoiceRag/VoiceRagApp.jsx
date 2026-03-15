@@ -7,11 +7,24 @@ import './VoiceRag.css';
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder';
 
 const VoiceRagApp = () => {
-  const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
-  const [docLoaded, setDocLoaded] = useState(false);
-  const [appStatus, setAppStatus] = useState('idle');
-  const [messages, setMessages] = useState([]);
-  const [docSummary, setDocSummary] = useState('');
+  const [subtitlesEnabled, setSubtitlesEnabled] = useState(() => {
+    const saved = localStorage.getItem('endee_subtitles');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+  const [docLoaded, setDocLoaded] = useState(() => {
+    return localStorage.getItem('endee_docLoaded') === 'true';
+  });
+  const [appStatus, setAppStatus] = useState(() => {
+    const saved = localStorage.getItem('endee_appStatus');
+    return saved || 'idle';
+  });
+  const [messages, setMessages] = useState(() => {
+    const saved = localStorage.getItem('endee_messages');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [docSummary, setDocSummary] = useState(() => {
+    return localStorage.getItem('endee_docSummary') || '';
+  });
   
   const audioPlayerRef = useRef(null);
   
@@ -21,6 +34,30 @@ const VoiceRagApp = () => {
     startRecording,
     stopRecording,
   } = useVoiceRecorder();
+
+  // Persist state to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('endee_subtitles', JSON.stringify(subtitlesEnabled));
+  }, [subtitlesEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('endee_docLoaded', docLoaded);
+  }, [docLoaded]);
+
+  useEffect(() => {
+    // We only want to persist stable states, not intermediate processing states
+    if (appStatus === 'idle' || appStatus === 'ready') {
+      localStorage.setItem('endee_appStatus', appStatus);
+    }
+  }, [appStatus]);
+
+  useEffect(() => {
+    localStorage.setItem('endee_messages', JSON.stringify(messages));
+  }, [messages]);
+
+  useEffect(() => {
+    localStorage.setItem('endee_docSummary', docSummary);
+  }, [docSummary]);
 
   useEffect(() => {
     if (isRecording) {
@@ -91,6 +128,25 @@ const VoiceRagApp = () => {
     }
   };
 
+  const handleClearData = async () => {
+    if (!window.confirm("Are you sure you want to clear all data and reset the app?")) return;
+
+    try {
+      await fetch('http://localhost:8000/clear', { method: 'POST' });
+    } catch (e) {
+      console.error("Failed to clear backend DB", e);
+    }
+
+    localStorage.clear();
+    setDocLoaded(false);
+    setAppStatus('idle');
+    setMessages([]);
+    setDocSummary('');
+    // Note: UploadZone state won't reset automatically since it manages its own state,
+    // but typically a user would refresh after a hard reset anyway.
+    window.location.reload();
+  };
+
   return (
     <div className="voice-rag-root">
       <div className="bg-orb orb-1"></div>
@@ -101,6 +157,7 @@ const VoiceRagApp = () => {
         <AppHeader 
           subtitlesEnabled={subtitlesEnabled} 
           setSubtitlesEnabled={setSubtitlesEnabled} 
+          onClearData={handleClearData}
         />
         
         <UploadZone 
