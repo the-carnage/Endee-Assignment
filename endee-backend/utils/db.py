@@ -1,14 +1,11 @@
 import os
 from chromadb import PersistentClient
 
-# Determine the path for the database storage
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "endee_db")
 
-# Initialize ChromaDB persistent client
 client = PersistentClient(path=DB_PATH)
 
-# Create or get the collection for our documents
 collection = client.get_or_create_collection(
     name="document_collection",
     metadata={"hnsw:space": "cosine"}
@@ -40,6 +37,5 @@ def query_db(query_text: str, n_results: int = 4) -> str:
     if not results or not results["documents"] or not results["documents"][0]:
         return ""
         
-    # Join the top retrieved chunks into a single context string
     retrieved_chunks = results["documents"][0]
     return "\n\n---\n\n".join(retrieved_chunks)

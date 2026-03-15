@@ -4,14 +4,12 @@ import google.generativeai as genai
 
 load_dotenv()
 
-# Initialize Gemini
 GEMINI_API_KEY = os.environ.get("GOOGLE_API_KEY")
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 else:
-    print("WARNING: GOOGLE_API_KEY is not set in the environment or .env file.")
+    print("WARNING: GOOGLE_API_KEY is not set.")
 
-# We use gemini-1.5-flash for fast text reasoning
 model = genai.GenerativeModel('gemini-1.5-flash')
 
 def generate_summary(text: str) -> str:
@@ -19,7 +17,6 @@ def generate_summary(text: str) -> str:
     if not GEMINI_API_KEY:
         return "Backend API Key missing. Upload successful but summary unavailable."
         
-    # Truncate text if it's wildly long to avoid token limits just for a summary
     prompt_text = text[:15000] if len(text) > 15000 else text
     
     prompt = f"""
