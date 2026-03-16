@@ -1,106 +1,172 @@
-# Endee Voice RAG
+# Endee Research Copilot
 
-A voice and text-based Retrieval-Augmented Generation (RAG) app. Upload a document, then ask questions about it using your voice or by typing — powered by Google Gemini and the Endee vector database.
+A polished voice-and-text RAG workspace built on top of the Endee vector database. The app lets a reviewer upload a PDF, image, or pasted text, index it into Endee, and ask grounded follow-up questions through typed prompts or voice input.
 
-## Tech Stack
+## Problem Statement
+
+The goal of this project is to turn raw documents into a practical retrieval workflow that feels closer to a production AI tool than a demo:
+
+- make the indexing and question-answering path obvious
+- keep answers grounded in the active source
+- expose backend, Endee, and model readiness in the UI
+- support both text and voice queries without fragile UX
+
+## What This Build Focuses On
+
+- Single active knowledge base: each new upload replaces the previous document, which keeps retrieval focused and predictable.
+- Clear system health: the frontend reads a dedicated `/health` endpoint so backend, Endee, and Gemini issues are visible before a user hits an error.
+- Safer backend behavior: ingest only clears the Endee index once embeddings are actually ready, which avoids wiping the last working source on a failed upload.
+- Better UX: no blocking `alert()` flow, cleaner reset behavior, text and voice query support in one place, and a layout that works on both desktop and mobile.
+
+## Architecture
+
+```text
+React (Vite)
+  -> source upload / query UI
+  -> calls FastAPI endpoints
+
+FastAPI
+  -> extracts text from PDF/image/plain text
+  -> creates Gemini embeddings
+  -> stores chunks in Endee
+  -> rewrites queries and generates final answers
+
+Endee
+  -> stores chunk embeddings
+  -> returns nearest-neighbor matches for retrieval
+```
+
+## Stack
 
 | Layer | Technology |
-|-------|-----------|
-| Frontend | React + Vite |
-| Backend | FastAPI (Python) |
-| LLM + Embeddings | Google Gemini (`gemini-2.0-flash`, `gemini-embedding-001`) |
-| Voice Transcription | Google Gemini (audio upload) |
-| Vector Database | [Endee](https://endee.io) (`endeeio/endee-server`) |
+| --- | --- |
+| Frontend | React 19 + Vite |
+| Backend | FastAPI |
+| Embeddings | Gemini `gemini-embedding-001` |
+| Answer generation | Gemini `gemini-2.0-flash` |
+| Voice transcription | Gemini audio input |
+| Vector database | Endee (run locally from source) |
 
 ## Project Structure
 
-```
+```text
 Endee-Assignment/
-├── endee-frontend/        # React app (Vite)
-│   ├── src/
-│   └── .env               # VITE_API_URL (not committed)
-├── endee-backend/         # FastAPI backend
-│   ├── main.py
-│   ├── utils/
-│   │   ├── llm.py         # Gemini LLM + embeddings + transcription
-│   │   ├── db.py          # Endee vector DB client
-│   │   └── extractors.py  # PDF / image text extraction
-│   └── .env               # API keys (not committed)
-└── endee/                 # Endee DB docker-compose
+├── endee/                  # Endee source tree
+├── endee-backend/          # FastAPI API and tests
+├── endee-frontend/         # React app
+└── README.md
 ```
 
-## Ports
+## Local Setup
 
-| Service | Port |
-|---------|------|
-| Frontend (dev) | `5173` |
-| Backend (FastAPI) | `8000` |
-| Endee Vector DB | `8080` |
+### 1. Start Endee locally from source
 
-## Prerequisites
+No Docker is required for this project.
 
-- Python 3.10+
-- Node.js 18+
-- Docker (for Endee vector DB)
-- Google API key (Gemini)
-
-## Setup
-
-### 1. Start Endee Vector DB
+Apple Silicon:
 
 ```bash
 cd endee
-docker compose up -d
+cmake -S . -B build-neon -DUSE_NEON=ON
+cmake --build build-neon -j4
+./run.sh binary_file=./build-neon/ndd-neon-darwin
 ```
 
-### 2. Backend
+Intel / AMD:
+
+```bash
+cd endee
+cmake -S . -B build-avx2 -DUSE_AVX2=ON
+cmake --build build-avx2 -j4
+./run.sh binary_file=./build-avx2/ndd-avx2
+```
+
+Endee listens on `http://localhost:8080`.
+
+### 2. Start the backend
 
 ```bash
 cd endee-backend
-python -m venv venv
-source venv/bin/activate      # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-
+python3 -m venv venv
+source venv/bin/activate
+pip install -r Requirements.txt
 cp .env.example .env
-# Edit .env and fill in your GOOGLE_API_KEY
-
 uvicorn main:app --reload --port 8000
 ```
 
-### 3. Frontend
+### 3. Start the frontend
 
 ```bash
 cd endee-frontend
 npm install
-
 cp .env.example .env
-# .env already set to http://localhost:8000
-
 npm run dev
 ```
 
-Open `http://localhost:5173`
+Open `http://localhost:5173`.
 
 ## Environment Variables
 
 ### `endee-backend/.env`
 
-```
-GOOGLE_API_KEY=your_google_api_key_here
+```env
+GOOGLE_API_KEY=your_gemini_api_key
 ENDEE_BASE_URL=http://localhost:8080
 ENDEE_AUTH_TOKEN=
 ```
 
 ### `endee-frontend/.env`
 
-```
+```env
 VITE_API_URL=http://localhost:8000
 ```
 
-## How It Works
+## API Endpoints
 
-1. **Upload** a PDF, image, or paste text
-2. Text is chunked, embedded via Gemini, and stored in Endee
-3. **Ask** a question by voice or text
-4. Voice is transcribed by Gemini, query is embedded and searched in Endee
-5. Top matching chunks are passed to Gemini to generate an answer
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/health` | Backend, Endee, and Gemini readiness |
+| `POST` | `/ingest/text` | Index pasted text |
+| `POST` | `/ingest/file` | Index a PDF or image |
+| `POST` | `/query/text` | Ask a text question |
+| `POST` | `/query/voice` | Ask a voice question |
+| `POST` | `/clear` | Clear the active Endee index |
+
+## How Retrieval Works
+
+1. The uploaded source is converted into plain text.
+2. The text is chunked into retrieval-sized segments.
+3. Gemini embeddings are generated per chunk.
+4. Chunks are inserted into Endee under a single collection.
+5. A user question is optionally rewritten into a better retrieval query.
+6. Endee returns the most relevant chunks.
+7. Gemini answers using only the retrieved context.
+
+## Verification
+
+Backend tests:
+
+```bash
+cd endee-backend
+./venv/bin/python -m unittest discover -s tests -v
+```
+
+Frontend quality checks:
+
+```bash
+cd endee-frontend
+npm run lint
+npm run build
+```
+
+Runtime health check:
+
+```bash
+curl http://localhost:8000/health
+```
+
+## Notes
+
+- The UI intentionally shows only one active indexed source at a time because the current backend clears and replaces the Endee collection on each ingest.
+- If port `8000` is already in use on your machine, start the backend on another port and update `VITE_API_URL` in `endee-frontend/.env`.
+- OCR support for images depends on `pytesseract` and a local Tesseract installation being available.

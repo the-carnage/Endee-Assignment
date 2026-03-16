@@ -19,6 +19,11 @@ __pycache__/
 *.pyd
 .Python
 
+# Build output
+endee/build/
+endee/build-*/
+endee-frontend/dist/
+
 # Secrets (safety net for all subdirs)
 .env
 .env.local

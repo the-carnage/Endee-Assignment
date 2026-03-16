@@ -1,558 +1,897 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { startTransition, useCallback, useEffect, useRef, useState } from 'react';
 import './App.css';
 import { useVoiceRecorder } from './hooks/useVoiceRecorder';
+import {
+  API_URL,
+  clearKnowledgeBase,
+  fetchHealthStatus,
+  ingestFileSource,
+  ingestTextSource,
+  submitTextQuery,
+  submitVoiceQuery,
+} from './lib/api';
+
+const TRANSCRIPT_STORAGE_KEY = 'endee_show_voice_transcript';
+
+const SOURCE_TABS = [
+  {
+    id: 'pdf',
+    label: 'PDF',
+    title: 'Upload a PDF',
+    description: 'Ideal for reports, specs, whitepapers, or long-form documents.',
+    accept: '.pdf',
+  },
+  {
+    id: 'text',
+    label: 'Text',
+    title: 'Paste working notes',
+    description: 'Drop in copied text, research snippets, or raw meeting notes.',
+    accept: '',
+  },
+  {
+    id: 'image',
+    label: 'Image',
+    title: 'Upload an image',
+    description: 'Best for screenshots, scanned pages, posters, or diagrams.',
+    accept: 'image/*',
+  },
+];
+
+const QUICK_PROMPTS = [
+  'Give me the executive summary.',
+  'List the most important entities, dates, and numbers.',
+  'What actions, decisions, or next steps are mentioned?',
+];
+
+const EMPTY_DOCUMENT = {
+  loaded: false,
+  name: '',
+  meta: '',
+  sourceType: '',
+  summary: '',
+  chunks: 0,
+  indexedAt: '',
+};
+
+const DEFAULT_HEALTH = {
+  checking: true,
+  backend: { status: 'checking', message: 'Checking API availability.' },
+  endee: { status: 'checking', message: 'Checking Endee readiness.' },
+  ai: { status: 'checking', message: 'Checking Gemini configuration.' },
+};
+
+function readStoredBoolean(key, fallback) {
+  try {
+    const stored = window.localStorage.getItem(key);
+    return stored === null ? fallback : JSON.parse(stored);
+  } catch {
+    return fallback;
+  }
+}
+
+function formatMessageTime(date = new Date()) {
+  return date.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatIndexedAt(date = new Date()) {
+  return date.toLocaleString([], {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
+
+function formatDuration(totalSeconds) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function createMessage(role, text, kind = 'default') {
+  const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+  return {
+    id,
+    role,
+    text,
+    kind,
+    time: formatMessageTime(),
+  };
+}
+
+function buildHistory(messages) {
+  return messages.slice(-6).map(({ role, text }) => ({ role, text }));
+}
+
+function createDocumentState({
+  name,
+  sourceType,
+  chunks,
+  summary,
+  meta,
+}) {
+  return {
+    loaded: true,
+    name,
+    sourceType,
+    chunks,
+    summary,
+    meta,
+    indexedAt: formatIndexedAt(),
+  };
+}
+
+function statusLabel(status, hasDocument) {
+  switch (status) {
+    case 'indexing':
+      return 'Indexing your source';
+    case 'recording':
+      return 'Recording your question';
+    case 'processing':
+      return 'Searching and drafting an answer';
+    case 'ready':
+      return 'Ready for the next question';
+    default:
+      return hasDocument ? 'Ready for the next question' : 'Load a source to begin';
+  }
+}
+
+function healthSummary(health) {
+  if (health.checking) {
+    return 'Checking backend, vector store, and model configuration.';
+  }
+
+  if (health.backend.status === 'error') {
+    return 'Backend offline. Start the FastAPI service before using the app.';
+  }
+
+  if (health.endee.status === 'error') {
+    return 'Endee is unreachable. Start the local Endee server on port 8080.';
+  }
+
+  if (health.ai.status === 'warning') {
+    return 'Backend is live, but Gemini is not configured yet.';
+  }
+
+  return 'Everything is ready. Upload a source and start asking questions.';
+}
+
+function sourceMetaLabel(sourceType) {
+  if (sourceType === 'Text') {
+    return 'Pasted notes';
+  }
+
+  return sourceType;
+}
 
 function App() {
-  const [subtitlesEnabled, setSubtitlesEnabled] = useState(() => {
-    const saved = localStorage.getItem('endee_subtitles');
-    return saved !== null ? JSON.parse(saved) : true;
-  });
-  
-  const [docLoaded, setDocLoaded] = useState(() => {
-    return localStorage.getItem('endee_docLoaded') === 'true';
-  });
-  
-  const [appStatus, setAppStatus] = useState(() => {
-    const saved = localStorage.getItem('endee_appStatus');
-    return saved || 'idle';
-  });
-  
-  const [messages, setMessages] = useState(() => {
-    const saved = localStorage.getItem('endee_messages');
-    return saved ? JSON.parse(saved) : [];
-  });
-  
-  const [docSummary, setDocSummary] = useState(() => {
-    return localStorage.getItem('endee_docSummary') || '';
-  });
-
-  const [uploadState, setUploadState] = useState('idle');
-  const [docInfo, setDocInfo] = useState({ name: '', meta: '' });
-  const [activeTab, setActiveTab] = useState('pdf');
-  const [textContent, setTextContent] = useState('');
-  const [textTitle, setTextTitle] = useState('');
-  const [isDragOver, setIsDragOver] = useState(false);
-  
-  const fileInputRef = useRef(null);
-  const appStatusRef = useRef(appStatus);
-  const subtitlesRef = useRef(subtitlesEnabled);
-  const messagesRef = useRef(messages);
-  const conversationEndRef = useRef(null);
-
-  useEffect(() => { appStatusRef.current = appStatus; }, [appStatus]);
-  useEffect(() => { subtitlesRef.current = subtitlesEnabled; }, [subtitlesEnabled]);
-  useEffect(() => { messagesRef.current = messages; }, [messages]);
-
-  const { isRecording, audioUrl, startRecording, stopRecording } = useVoiceRecorder();
-
-  const addMessage = useCallback((role, text) => {
-    const time = new Date().toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-    setMessages((prev) => [...prev, { role, text, time }]);
-  }, []);
-
-  const processAudioRecording = useCallback(
-    async (url) => {
-      setAppStatus('processing');
-
-      try {
-        const response = await fetch(url);
-        const audioBlob = await response.blob();
-
-        const formData = new FormData();
-        formData.append('audio', audioBlob, 'recording.webm');
-
-        const recentHistory = messagesRef.current
-          .slice(-6)
-          .map((m) => ({ role: m.role, text: m.text }));
-        formData.append('history', JSON.stringify(recentHistory));
-
-        const apiRes = await fetch('http://localhost:8000/query/voice', {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!apiRes.ok) {
-          throw new Error(`Server returned ${apiRes.status}`);
-        }
-
-        const data = await apiRes.json();
-
-        if (subtitlesRef.current && data.transcript) {
-          addMessage('user', data.transcript);
-        }
-
-        if (subtitlesRef.current && data.response) {
-          addMessage('ai', data.response);
-        }
-
-        setAppStatus('ready');
-      } catch (error) {
-        console.error('Speech processing error:', error);
-        if (subtitlesRef.current) {
-          addMessage(
-            'ai',
-            'Sorry, I had trouble connecting to the backend server to process your voice.',
-          );
-        }
-        setAppStatus('ready');
-      }
-    },
-    [addMessage],
+  const [showTranscript, setShowTranscript] = useState(() =>
+    readStoredBoolean(TRANSCRIPT_STORAGE_KEY, true),
   );
+  const [health, setHealth] = useState(DEFAULT_HEALTH);
+  const [documentState, setDocumentState] = useState(EMPTY_DOCUMENT);
+  const [messages, setMessages] = useState([]);
+  const [sourceTab, setSourceTab] = useState('pdf');
+  const [textTitle, setTextTitle] = useState('');
+  const [textContent, setTextContent] = useState('');
+  const [queryInput, setQueryInput] = useState('');
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [phase, setPhase] = useState('idle');
+  const [notice, setNotice] = useState(null);
+
+  const fileInputRef = useRef(null);
+  const conversationEndRef = useRef(null);
+  const noticeTimeoutRef = useRef(null);
+  const messagesRef = useRef(messages);
+
+  const {
+    error: recorderError,
+    isRecording,
+    lastRecording,
+    recordingTime,
+    clearRecording,
+    startRecording,
+    stopRecording,
+  } = useVoiceRecorder();
+
+  const currentStatus = isRecording ? 'recording' : phase;
+  const disableQueries = phase === 'indexing' || phase === 'processing';
+  const activeTab = SOURCE_TABS.find((tab) => tab.id === sourceTab) ?? SOURCE_TABS[0];
 
   useEffect(() => {
-    localStorage.setItem('endee_subtitles', JSON.stringify(subtitlesEnabled));
-  }, [subtitlesEnabled]);
-
-  useEffect(() => {
-    localStorage.setItem('endee_docLoaded', docLoaded);
-  }, [docLoaded]);
-
-  useEffect(() => {
-    if (appStatus === 'idle' || appStatus === 'ready') {
-      localStorage.setItem('endee_appStatus', appStatus);
-    }
-  }, [appStatus]);
-
-  useEffect(() => {
-    localStorage.setItem('endee_messages', JSON.stringify(messages));
+    messagesRef.current = messages;
   }, [messages]);
 
   useEffect(() => {
-    localStorage.setItem('endee_docSummary', docSummary);
-  }, [docSummary]);
-
-  useEffect(() => {
-    if (isRecording) {
-      setAppStatus('recording');
-    }
-  }, [isRecording]);
-
-  useEffect(() => {
-    if (audioUrl && !isRecording && appStatusRef.current === 'recording') {
-      processAudioRecording(audioUrl);
-    }
-  }, [audioUrl, isRecording, processAudioRecording]);
+    window.localStorage.setItem(
+      TRANSCRIPT_STORAGE_KEY,
+      JSON.stringify(showTranscript),
+    );
+  }, [showTranscript]);
 
   useEffect(() => {
     conversationEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, currentStatus]);
 
-  const handleFileUpload = async (file) => {
-    if (!file) return;
-    
-    if (activeTab === 'pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-      alert('Please choose a PDF file.');
-      return;
+  useEffect(() => {
+    return () => {
+      if (noticeTimeoutRef.current) {
+        window.clearTimeout(noticeTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const showNotice = useCallback((tone, message) => {
+    if (noticeTimeoutRef.current) {
+      window.clearTimeout(noticeTimeoutRef.current);
     }
-    
-    if (activeTab === 'image' && !file.type.startsWith('image/')) {
-      alert('Please choose an Image file.');
-      return;
+
+    setNotice({ tone, message });
+    noticeTimeoutRef.current = window.setTimeout(() => {
+      setNotice(null);
+    }, 4200);
+  }, []);
+
+  const addMessage = useCallback((role, text, kind = 'default') => {
+    startTransition(() => {
+      setMessages((previous) => [...previous, createMessage(role, text, kind)]);
+    });
+  }, []);
+
+  const replaceConversation = useCallback((nextMessages) => {
+    startTransition(() => {
+      setMessages(nextMessages);
+    });
+  }, []);
+
+  const refreshHealth = useCallback(
+    async ({ silent = false } = {}) => {
+      setHealth((previous) => ({ ...previous, checking: true }));
+
+      try {
+        const payload = await fetchHealthStatus();
+        setHealth({
+          checking: false,
+          backend: payload.backend,
+          endee: payload.endee,
+          ai: payload.ai,
+        });
+
+        if (!silent && payload.endee.status === 'error') {
+          showNotice('error', payload.endee.message);
+        }
+      } catch (error) {
+        setHealth({
+          checking: false,
+          backend: { status: 'error', message: 'FastAPI is not reachable.' },
+          endee: { status: 'error', message: 'Endee status unavailable until the API is back.' },
+          ai: { status: 'warning', message: 'Model status unavailable until the API is back.' },
+        });
+
+        if (!silent) {
+          showNotice('error', error.message);
+        }
+      }
+    },
+    [showNotice],
+  );
+
+  useEffect(() => {
+    void refreshHealth({ silent: true });
+  }, [refreshHealth]);
+
+  useEffect(() => {
+    if (recorderError) {
+      showNotice('error', recorderError);
     }
+  }, [recorderError, showNotice]);
 
-    setUploadState('progress');
+  const resetLocalWorkspace = useCallback(() => {
+    setDocumentState(EMPTY_DOCUMENT);
+    setMessages([]);
+    setTextTitle('');
+    setTextContent('');
+    setQueryInput('');
+    setPhase('idle');
+    clearRecording();
+  }, [clearRecording]);
 
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      const response = await fetch('http://localhost:8000/ingest/file', {
-        method: 'POST',
-        body: formData,
-      });
+  const beginNewDocumentSession = useCallback(
+    ({ name, sourceType, chunks, summary, meta }) => {
+      setDocumentState(
+        createDocumentState({
+          name,
+          sourceType,
+          chunks,
+          summary,
+          meta,
+        }),
+      );
+      setPhase('ready');
 
-      if (!response.ok) {
-        throw new Error(`Server responded with ${response.status}`);
+      if (summary) {
+        replaceConversation([
+          createMessage(
+            'assistant',
+            `Indexed ${name}. Quick brief: ${summary}`,
+            'summary',
+          ),
+        ]);
+      } else {
+        replaceConversation([]);
+      }
+    },
+    [replaceConversation],
+  );
+
+  const handleFileUpload = useCallback(
+    async (file, tabId = sourceTab) => {
+      if (!file) {
+        return;
       }
 
-      const data = await response.json();
-      const chunks = data.chunks_indexed || 0;
-
-      setDocInfo({
-        name: file.name,
-        meta: `${chunks} chunks indexed`,
-      });
-      setUploadState('loaded');
-      setDocLoaded(true);
-      setDocSummary(data.summary || '');
-      
-      if (subtitlesEnabled && data.summary) {
-        addMessage('ai', `Document loaded successfully! Here is a quick summary:\n\n${data.summary}`);
+      const lowerName = file.name.toLowerCase();
+      if (tabId === 'pdf' && !lowerName.endsWith('.pdf')) {
+        showNotice('error', 'Choose a PDF file for the PDF workflow.');
+        return;
       }
-      
-      if (appStatus === 'idle') setAppStatus('ready');
-    } catch (error) {
-      console.error('Upload failed:', error);
-      alert('Backend connection failed! Is the FastAPI server running on port 8000?');
-      setUploadState('idle');
-    }
-  };
 
-  const handleTextIngest = async () => {
+      if (tabId === 'image' && !file.type.startsWith('image/')) {
+        showNotice('error', 'Choose an image file for the image workflow.');
+        return;
+      }
+
+      setPhase('indexing');
+
+      try {
+        const payload = await ingestFileSource(file);
+        const chunkCount = payload.chunks_indexed ?? 0;
+        const sourceType = tabId === 'pdf' ? 'PDF' : 'Image';
+
+        beginNewDocumentSession({
+          name: file.name,
+          sourceType,
+          chunks: chunkCount,
+          summary: payload.summary || '',
+          meta: `${chunkCount} chunk${chunkCount === 1 ? '' : 's'} indexed · ${sourceType}`,
+        });
+        showNotice('success', `${file.name} is ready for questions.`);
+        void refreshHealth({ silent: true });
+      } catch (error) {
+        setPhase(documentState.loaded ? 'ready' : 'idle');
+        showNotice('error', error.message);
+      }
+    },
+    [beginNewDocumentSession, documentState.loaded, refreshHealth, showNotice, sourceTab],
+  );
+
+  const handleTextIngest = useCallback(async () => {
     const content = textContent.trim();
-    const title = textTitle.trim() || 'Pasted Text';
+    const title = textTitle.trim() || 'Pasted notes';
 
     if (!content) {
-      alert('Please paste some text first.');
-      return;
-    }
-    if (content.length < 50) {
-      alert('Text is too short (minimum 50 characters).');
+      showNotice('error', 'Paste some text before indexing it.');
       return;
     }
 
-    setUploadState('progress');
+    if (content.length < 30) {
+      showNotice('error', 'Add a bit more context so retrieval has enough material to work with.');
+      return;
+    }
+
+    setPhase('indexing');
 
     try {
-      const response = await fetch('http://localhost:8000/ingest/text', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text: content }),
-      });
+      const payload = await ingestTextSource(content);
+      const chunkCount = payload.chunks_indexed ?? 0;
 
-      if (!response.ok) {
-        throw new Error(`Server responded with ${response.status}`);
-      }
-
-      const data = await response.json();
-      const chunks = data.chunks_indexed || 0;
-
-      setDocInfo({
+      beginNewDocumentSession({
         name: title,
-        meta: `${content.length.toLocaleString()} chars · ${chunks} chunks indexed`,
+        sourceType: 'Text',
+        chunks: chunkCount,
+        summary: payload.summary || '',
+        meta: `${content.length.toLocaleString()} characters · ${chunkCount} chunk${chunkCount === 1 ? '' : 's'} indexed`,
       });
-      setUploadState('loaded');
-      setDocLoaded(true);
-      setDocSummary(data.summary || '');
-      
-      if (subtitlesEnabled && data.summary) {
-        addMessage('ai', `Document loaded successfully! Here is a quick summary:\n\n${data.summary}`);
-      }
-      
-      if (appStatus === 'idle') setAppStatus('ready');
+      showNotice('success', `${title} is ready for questions.`);
+      void refreshHealth({ silent: true });
     } catch (error) {
-      console.error('Text ingest failed:', error);
-      alert('Backend connection failed! Is the FastAPI server running on port 8000?');
-      setUploadState('idle');
+      setPhase(documentState.loaded ? 'ready' : 'idle');
+      showNotice('error', error.message);
     }
-  };
+  }, [
+    beginNewDocumentSession,
+    documentState.loaded,
+    refreshHealth,
+    showNotice,
+    textContent,
+    textTitle,
+  ]);
 
-  const handleMicClick = () => {
-    if (!docLoaded) return;
-
-    if (appStatus === 'ready' || appStatus === 'idle') {
-      startRecording();
-    } else if (appStatus === 'recording') {
-      stopRecording();
-    }
-  };
-
-  const handleClearData = async () => {
-    try {
-      await fetch('http://localhost:8000/clear', { method: 'POST' });
-    } catch (e) {
-      console.error('Failed to clear backend DB', e);
-    }
-
-    localStorage.clear();
-    window.location.replace(window.location.pathname);
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  };
-
-  const handleDragLeave = () => {
-    setIsDragOver(false);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      if (file.type.startsWith('image/')) {
-        setActiveTab('image');
-        handleFileUpload(file);
-      } else if (file.name.toLowerCase().endsWith('.pdf')) {
-        setActiveTab('pdf');
-        handleFileUpload(file);
-      } else {
-        alert('Please drop a PDF or Image file.');
+  const handleQuerySubmit = useCallback(
+    async (question) => {
+      const trimmedQuestion = question.trim();
+      if (!trimmedQuestion || !documentState.loaded || disableQueries) {
+        return;
       }
+
+      const history = buildHistory(messagesRef.current);
+      addMessage('user', trimmedQuestion);
+      setQueryInput('');
+      setPhase('processing');
+
+      try {
+        const payload = await submitTextQuery(trimmedQuestion, history);
+        addMessage(
+          'assistant',
+          payload.response || "I couldn't generate a response for that question.",
+        );
+      } catch (error) {
+        addMessage(
+          'assistant',
+          `I hit a backend issue while answering that. ${error.message}`,
+          'error',
+        );
+        showNotice('error', error.message);
+      } finally {
+        setPhase('ready');
+      }
+    },
+    [addMessage, disableQueries, documentState.loaded, showNotice],
+  );
+
+  const handleReset = useCallback(async () => {
+    const confirmed = window.confirm(
+      'Clear the indexed document and conversation so you can start over?',
+    );
+    if (!confirmed) {
+      return;
     }
-  };
+
+    try {
+      await clearKnowledgeBase();
+      showNotice('success', 'Knowledge base cleared. Ready for a fresh source.');
+    } catch (error) {
+      showNotice(
+        'warning',
+        `${error.message} The local workspace was cleared, but the backend may still hold the previous vectors.`,
+      );
+    } finally {
+      resetLocalWorkspace();
+      void refreshHealth({ silent: true });
+    }
+  }, [refreshHealth, resetLocalWorkspace, showNotice]);
+
+  useEffect(() => {
+    if (!lastRecording || isRecording) {
+      return;
+    }
+
+    const runVoiceQuery = async () => {
+      if (!documentState.loaded) {
+        clearRecording();
+        return;
+      }
+
+      setPhase('processing');
+
+      try {
+        const payload = await submitVoiceQuery(lastRecording, buildHistory(messagesRef.current));
+
+        if (showTranscript && payload.transcript) {
+          addMessage('user', payload.transcript, 'transcript');
+        }
+
+        addMessage(
+          'assistant',
+          payload.response || "I couldn't generate a response for that voice query.",
+        );
+      } catch (error) {
+        addMessage(
+          'assistant',
+          `Voice search failed. ${error.message}`,
+          'error',
+        );
+        showNotice('error', error.message);
+      } finally {
+        clearRecording();
+        setPhase('ready');
+      }
+    };
+
+    void runVoiceQuery();
+  }, [
+    addMessage,
+    clearRecording,
+    documentState.loaded,
+    isRecording,
+    lastRecording,
+    showNotice,
+    showTranscript,
+  ]);
+
+  const handleMicClick = useCallback(() => {
+    if (!documentState.loaded || disableQueries) {
+      return;
+    }
+
+    if (isRecording) {
+      stopRecording();
+      return;
+    }
+
+    void startRecording();
+  }, [disableQueries, documentState.loaded, isRecording, startRecording, stopRecording]);
+
+  const handleDrop = useCallback(
+    async (event) => {
+      event.preventDefault();
+      setIsDragOver(false);
+
+      const droppedFile = event.dataTransfer.files?.[0];
+      if (!droppedFile) {
+        return;
+      }
+
+      if (droppedFile.type.startsWith('image/')) {
+        setSourceTab('image');
+        await handleFileUpload(droppedFile, 'image');
+        return;
+      }
+
+      if (droppedFile.name.toLowerCase().endsWith('.pdf')) {
+        setSourceTab('pdf');
+        await handleFileUpload(droppedFile, 'pdf');
+        return;
+      }
+
+      showNotice('error', 'Drop a PDF or image file to index it.');
+    },
+    [handleFileUpload, showNotice],
+  );
 
   return (
-    <div className="app-root">
-      <div className="gradient-orb orb-1"></div>
-      <div className="gradient-orb orb-2"></div>
-      
-      <div className="app-container">
-        {/* Header */}
+    <div className="app-shell">
+      <div className="backdrop backdrop-aurora" />
+      <div className="backdrop backdrop-grid" />
+
+      {notice && (
+        <div className={`notice-banner ${notice.tone}`}>
+          <span className="notice-label">
+            {notice.tone === 'success' && 'Success'}
+            {notice.tone === 'warning' && 'Heads up'}
+            {notice.tone === 'error' && 'Issue'}
+          </span>
+          <p>{notice.message}</p>
+        </div>
+      )}
+
+      <div className="app-frame">
         <header className="app-header">
-          <div className="header-brand">
-            <div className="brand-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z" 
-                      fill="currentColor"/>
-              </svg>
-            </div>
-            <div className="brand-text">
-              <h1>Endee</h1>
-              <p>Voice RAG Assistant</p>
+          <div className="brand-lockup">
+            <div className="brand-badge">ER</div>
+            <div>
+              <p className="eyebrow">Voice RAG Workspace</p>
+              <h1>Endee Research Copilot</h1>
             </div>
           </div>
-          
-          <div className="header-controls">
-            <label className="toggle-switch">
-              <input 
-                type="checkbox" 
-                checked={subtitlesEnabled}
-                onChange={(e) => setSubtitlesEnabled(e.target.checked)}
-              />
-              <span className="toggle-slider"></span>
-              <span className="toggle-label">Subtitles</span>
-            </label>
-            
-            <button className="header-btn" onClick={handleClearData}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 6h18M8 6V4h8v2M19 6v14H5V6"/>
-              </svg>
-              Clear
+
+          <div className="header-actions">
+            <button className="secondary-btn" onClick={() => void refreshHealth()}>
+              Refresh health
+            </button>
+            <button className="ghost-btn" onClick={handleReset}>
+              Clear workspace
             </button>
           </div>
         </header>
 
-        {/* Upload Zone */}
-        <section 
-          className={`upload-section ${uploadState === 'loaded' ? 'loaded' : ''} ${isDragOver ? 'drag-over' : ''}`}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-        >
-          <input
-            type="file"
-            ref={fileInputRef}
-            accept={activeTab === 'image' ? 'image/*' : '.pdf'}
-            hidden
-            onChange={(e) => {
-              const file = e.target.files[0];
-              if (file) handleFileUpload(file);
-              e.target.value = '';
-            }}
-          />
-
-          {uploadState !== 'loaded' && (
-            <div className="source-tabs">
-              <button
-                className={`tab-btn ${activeTab === 'pdf' ? 'active' : ''}`}
-                onClick={() => setActiveTab('pdf')}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                </svg>
-                PDF
-              </button>
-              <button
-                className={`tab-btn ${activeTab === 'text' ? 'active' : ''}`}
-                onClick={() => setActiveTab('text')}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="17" y1="10" x2="3" y2="10"/>
-                  <line x1="21" y1="6" x2="3" y2="6"/>
-                  <line x1="21" y1="14" x2="3" y2="14"/>
-                  <line x1="13" y1="18" x2="3" y2="18"/>
-                </svg>
-                Text
-              </button>
-              <button
-                className={`tab-btn ${activeTab === 'image' ? 'active' : ''}`}
-                onClick={() => setActiveTab('image')}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="3" width="18" height="18" rx="2"/>
-                  <circle cx="8.5" cy="8.5" r="1.5"/>
-                  <polyline points="21 15 16 10 5 21"/>
-                </svg>
-                Image
-              </button>
-            </div>
-          )}
-
-          {uploadState === 'idle' && activeTab !== 'text' && (
-            <div className="upload-idle">
-              <div className="upload-icon">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
-                </svg>
+        <main className="workspace">
+          <section className="control-column">
+            <article className="hero-card">
+              <div className="hero-copy">
+                <p className="eyebrow">Production-style assignment build</p>
+                <h2>Upload a source, retrieve the right chunks, and answer with context.</h2>
+                <p className="hero-text">
+                  This workspace keeps the flow tight: one indexed knowledge base at a time,
+                  clear service health, and both text and voice questioning without hidden
+                  failure states.
+                </p>
               </div>
-              <h3>Drop {activeTab === 'pdf' ? 'PDF' : 'Image'} or click to upload</h3>
-              <p>Your document will be indexed for voice queries</p>
-              <button className="upload-btn" onClick={() => fileInputRef.current?.click()}>
-                Choose {activeTab === 'pdf' ? 'PDF' : 'Image'}
-              </button>
-            </div>
-          )}
 
-          {uploadState === 'idle' && activeTab === 'text' && (
-            <div className="upload-text">
-              <input
-                type="text"
-                className="text-title"
-                placeholder="Title (optional)"
-                maxLength="80"
-                value={textTitle}
-                onChange={(e) => setTextTitle(e.target.value)}
-              />
-              <textarea
-                className="text-area"
-                placeholder="Paste your text here — notes, articles, transcripts, anything you want to ask questions about…"
-                rows="6"
-                value={textContent}
-                onChange={(e) => setTextContent(e.target.value)}
-              />
-              <div className="text-footer">
-                <span className="char-count">
-                  {textContent.length.toLocaleString()} character{textContent.length !== 1 ? 's' : ''}
-                </span>
-                <button className="upload-btn" onClick={handleTextIngest}>
-                  Index Text
-                </button>
-              </div>
-            </div>
-          )}
-
-          {uploadState === 'progress' && (
-            <div className="upload-progress">
-              <div className="spinner"></div>
-              <span>Processing on Backend...</span>
-            </div>
-          )}
-
-          {uploadState === 'loaded' && (
-            <div className="upload-loaded">
-              <div className="doc-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="20 6 9 17 4 12"/>
-                </svg>
-              </div>
-              <div className="doc-info">
-                <span className="doc-name">{docInfo.name}</span>
-                <span className="doc-meta">{docInfo.meta}</span>
-              </div>
-              <button className="replace-btn" onClick={() => {
-                setUploadState('idle');
-                setDocLoaded(false);
-                if (activeTab !== 'text') fileInputRef.current?.click();
-              }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="23 4 23 10 17 10"/>
-                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-                </svg>
-                Replace
-              </button>
-            </div>
-          )}
-        </section>
-
-        {/* Conversation Area */}
-        <main className="conversation-area">
-          {messages.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/>
-                  <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
-                </svg>
-              </div>
-              <p>Ready to listen</p>
-              <span>Upload a document and start asking questions</span>
-            </div>
-          ) : (
-            <>
-              {messages.map((msg, idx) => (
-                <div key={idx} className={`chat-bubble ${msg.role}`}>
-                  <div className="bubble-avatar">
-                    {msg.role === 'user' ? 'U' : 'AI'}
+              <div className="health-panel">
+                <div className="health-heading">
+                  <div>
+                    <span className="section-label">System status</span>
+                    <p>{healthSummary(health)}</p>
                   </div>
-                  <div className="bubble-body">
-                    <div className="bubble-text">{msg.text}</div>
-                    <div className="bubble-time">{msg.time}</div>
+                  <code>{API_URL}</code>
+                </div>
+
+                <div className="service-grid">
+                  {[
+                    { label: 'Backend', value: health.backend },
+                    { label: 'Endee', value: health.endee },
+                    { label: 'Gemini', value: health.ai },
+                  ].map((service) => (
+                    <article
+                      key={service.label}
+                      className={`service-card ${service.value.status}`}
+                    >
+                      <span className={`service-dot ${service.value.status}`} />
+                      <div>
+                        <h3>{service.label}</h3>
+                        <p>{service.value.message}</p>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            </article>
+
+            <article className="panel source-panel">
+              <div className="panel-heading">
+                <div>
+                  <span className="section-label">Source setup</span>
+                  <h2>{activeTab.title}</h2>
+                </div>
+                {documentState.loaded && (
+                  <div className="indexed-pill">
+                    <span>Current source</span>
+                    <strong>{documentState.name}</strong>
+                  </div>
+                )}
+              </div>
+
+              <p className="panel-description">{activeTab.description}</p>
+
+              <div className="tab-row" role="tablist" aria-label="Source type">
+                {SOURCE_TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    className={`tab-btn ${sourceTab === tab.id ? 'active' : ''}`}
+                    onClick={() => setSourceTab(tab.id)}
+                    type="button"
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {sourceTab !== 'text' ? (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    hidden
+                    accept={activeTab.accept}
+                    onChange={(event) => {
+                      const nextFile = event.target.files?.[0];
+                      if (nextFile) {
+                        void handleFileUpload(nextFile, sourceTab);
+                      }
+                      event.target.value = '';
+                    }}
+                  />
+
+                  <button
+                    className={`dropzone ${isDragOver ? 'drag-over' : ''}`}
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      setIsDragOver(true);
+                    }}
+                    onDragLeave={() => setIsDragOver(false)}
+                    onDrop={(event) => {
+                      void handleDrop(event);
+                    }}
+                    type="button"
+                  >
+                    <span className="dropzone-icon" aria-hidden="true">
+                      {sourceTab === 'pdf' ? 'PDF' : 'IMG'}
+                    </span>
+                    <strong>
+                      {documentState.loaded ? 'Replace the current source' : 'Drop a file or click to browse'}
+                    </strong>
+                    <p>
+                      New uploads replace the current knowledge base so answers stay focused.
+                    </p>
+                  </button>
+                </>
+              ) : (
+                <div className="text-ingest">
+                  <input
+                    className="text-title-input"
+                    maxLength="80"
+                    onChange={(event) => setTextTitle(event.target.value)}
+                    placeholder="Optional title for this source"
+                    value={textTitle}
+                  />
+                  <textarea
+                    className="text-source-input"
+                    onChange={(event) => setTextContent(event.target.value)}
+                    placeholder="Paste the content you want to ask questions about."
+                    rows="9"
+                    value={textContent}
+                  />
+                  <div className="text-ingest-footer">
+                    <span>{textContent.length.toLocaleString()} characters</span>
+                    <button
+                      className="primary-btn"
+                      disabled={phase === 'indexing'}
+                      onClick={() => void handleTextIngest()}
+                      type="button"
+                    >
+                      Index text
+                    </button>
                   </div>
                 </div>
-              ))}
-              
-              {appStatus === 'processing' && (
-                <div className="chat-bubble ai thinking">
-                  <div className="bubble-avatar">AI</div>
-                  <div className="bubble-body">
-                    <div className="bubble-text">
-                      <div className="dots">
-                        <span></span>
-                        <span></span>
-                        <span></span>
+              )}
+
+              <div className="source-footnote">
+                <span>Single-source retrieval keeps answers grounded in the active document.</span>
+              </div>
+            </article>
+
+            <article className="panel summary-panel">
+              <div className="panel-heading">
+                <div>
+                  <span className="section-label">Document snapshot</span>
+                  <h2>{documentState.loaded ? documentState.name : 'Nothing indexed yet'}</h2>
+                </div>
+                <label className="toggle-row">
+                  <input
+                    checked={showTranscript}
+                    onChange={(event) => setShowTranscript(event.target.checked)}
+                    type="checkbox"
+                  />
+                  <span>Show voice transcript</span>
+                </label>
+              </div>
+
+              {documentState.loaded ? (
+                <>
+                  <div className="document-metadata">
+                    <span>{sourceMetaLabel(documentState.sourceType)}</span>
+                    <span>{documentState.meta}</span>
+                    <span>Indexed {documentState.indexedAt}</span>
+                  </div>
+
+                  <p className="summary-copy">
+                    {documentState.summary || 'No summary was returned for this source.'}
+                  </p>
+
+                  <div className="prompt-stack">
+                    {QUICK_PROMPTS.map((prompt) => (
+                      <button
+                        key={prompt}
+                        className="prompt-chip"
+                        disabled={disableQueries}
+                        onClick={() => void handleQuerySubmit(prompt)}
+                        type="button"
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="empty-summary">
+                  <p>Once you index a source, its quick summary and useful starter prompts show up here.</p>
+                </div>
+              )}
+            </article>
+          </section>
+
+          <section className="conversation-column">
+            <article className="panel conversation-panel">
+              <div className="panel-heading conversation-heading">
+                <div>
+                  <span className="section-label">Conversation</span>
+                  <h2>Ask by typing or using the mic</h2>
+                </div>
+                <div className={`status-pill ${currentStatus}`}>
+                  {currentStatus === 'recording' ? formatDuration(recordingTime) : statusLabel(currentStatus, documentState.loaded)}
+                </div>
+              </div>
+
+              <div className="conversation-log">
+                {messages.length === 0 ? (
+                  <div className="conversation-empty">
+                    <h3>{documentState.loaded ? 'Your next question starts here.' : 'Index a source to unlock retrieval.'}</h3>
+                    <p>
+                      {documentState.loaded
+                        ? 'Use the text box for precise prompts or the mic for hands-free queries.'
+                        : 'The UI will stay honest about backend, Endee, and Gemini status while you get set up.'}
+                    </p>
+                  </div>
+                ) : (
+                  messages.map((message) => (
+                    <article
+                      key={message.id}
+                      className={`message-bubble ${message.role} ${message.kind}`}
+                    >
+                      <div className="message-role">
+                        {message.role === 'user' ? 'You' : 'Assistant'}
                       </div>
+                      <div className="message-body">
+                        <p>{message.text}</p>
+                        <span>{message.time}</span>
+                      </div>
+                    </article>
+                  ))
+                )}
+
+                {currentStatus === 'processing' && (
+                  <article className="message-bubble assistant thinking">
+                    <div className="message-role">Assistant</div>
+                    <div className="message-body">
+                      <div className="typing-dots" aria-hidden="true">
+                        <span />
+                        <span />
+                        <span />
+                      </div>
+                      <span>Searching the indexed context…</span>
+                    </div>
+                  </article>
+                )}
+
+                <div ref={conversationEndRef} />
+              </div>
+
+              <div className="composer-area">
+                <form
+                  className="query-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleQuerySubmit(queryInput);
+                  }}
+                >
+                  <textarea
+                    className="query-input"
+                    disabled={!documentState.loaded || disableQueries}
+                    onChange={(event) => setQueryInput(event.target.value)}
+                    placeholder={
+                      documentState.loaded
+                        ? 'Ask for a summary, a fact lookup, extracted actions, or a grounded answer.'
+                        : 'Index a source first to enable querying.'
+                    }
+                    rows="3"
+                    value={queryInput}
+                  />
+
+                  <div className="composer-actions">
+                    <div className="composer-hint">
+                      {currentStatus === 'recording'
+                        ? `Recording now (${formatDuration(recordingTime)})`
+                        : statusLabel(currentStatus, documentState.loaded)}
+                    </div>
+
+                    <div className="composer-buttons">
+                      <button
+                        className="secondary-btn"
+                        disabled={!queryInput.trim() || !documentState.loaded || disableQueries}
+                        type="submit"
+                      >
+                        Ask
+                      </button>
+
+                      <button
+                        className={`mic-btn ${currentStatus}`}
+                        disabled={!documentState.loaded || disableQueries}
+                        onClick={handleMicClick}
+                        type="button"
+                      >
+                        <span className="mic-signal" aria-hidden="true" />
+                        <span>{isRecording ? 'Stop recording' : 'Ask with voice'}</span>
+                      </button>
                     </div>
                   </div>
-                </div>
-              )}
-              
-              <div ref={conversationEndRef} />
-            </>
-          )}
+                </form>
+              </div>
+            </article>
+          </section>
         </main>
-
-        {/* Footer with Mic */}
-        <footer className="app-footer">
-          <div className="status-bar">
-            <div className={`status-dot ${appStatus}`}></div>
-            <span className="status-text">
-              {appStatus === 'idle' && 'Upload document to start'}
-              {appStatus === 'ready' && 'Ready'}
-              {appStatus === 'recording' && 'Recording...'}
-              {appStatus === 'processing' && 'Processing...'}
-            </span>
-          </div>
-          
-          <div className="mic-container">
-            <div className={`waveform ${isRecording ? 'active' : ''}`}>
-              {[...Array(10)].map((_, i) => <span key={i}></span>)}
-            </div>
-            
-            <button 
-              className={`mic-btn ${appStatus}`}
-              onClick={handleMicClick}
-              disabled={!docLoaded || appStatus === 'processing'}
-            >
-              <div className="mic-ring"></div>
-              <div className="mic-ring mic-ring-2"></div>
-              
-              {appStatus === 'recording' ? (
-                <svg className="stop-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                  <rect x="6" y="6" width="12" height="12" rx="2"/>
-                </svg>
-              ) : (
-                <svg className="mic-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/>
-                  <path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8"/>
-                </svg>
-              )}
-            </button>
-          </div>
-          
-          <p className="mic-hint">
-            {docLoaded ? 'Click to ask a question' : 'Upload a document first'}
-          </p>
-        </footer>
       </div>
     </div>
   );

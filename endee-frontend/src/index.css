@@ -1,64 +1,92 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap');
+
 :root {
-  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  --bg-color: #0a0a0f;
-  --text-color: #f0f0f5;
-  --border: rgba(255, 255, 255, 0.08);
-  --surface: rgba(255, 255, 255, 0.03);
-  --surface-hv: rgba(255, 255, 255, 0.06);
-  --accent: #7c3aed;
-  --accent-2: #ec4899;
-  --accent-glow: rgba(124, 58, 237, 0.4);
-  --text-1: #f0f0f5;
-  --text-2: rgba(255, 255, 255, 0.8);
-  --text-3: rgba(255, 255, 255, 0.5);
-  --radius: 12px;
+  --font-body: 'Instrument Sans', 'Segoe UI', sans-serif;
+  --font-display: 'Space Grotesk', 'Segoe UI', sans-serif;
+  --ink-950: #172033;
+  --ink-900: #1f2937;
+  --ink-800: #334155;
+  --ink-700: #475569;
+  --ink-600: #64748b;
+  --ink-500: #94a3b8;
+  --panel-border: rgba(255, 255, 255, 0.66);
+  --panel-border-strong: rgba(148, 163, 184, 0.24);
+  color: var(--ink-950);
+  font-family: var(--font-body);
+  font-synthesis: none;
+  line-height: 1.5;
 }
 
 * {
-  margin: 0;
-  padding: 0;
   box-sizing: border-box;
+  margin: 0;
 }
 
 html {
+  background: #f9f2e8;
+  color: var(--ink-950);
   font-size: 16px;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
 }
 
 body {
-  font-family: var(--font-family);
-  background: var(--bg-color);
-  color: var(--text-color);
-  overflow: hidden;
-  height: 100vh;
-  width: 100vw;
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  overscroll-behavior: none;
+}
+
+body,
+button,
+input,
+textarea {
+  font-family: var(--font-body);
+}
+
+button,
+input,
+textarea {
+  border: 0;
+}
+
+button {
+  background: none;
+}
+
+textarea {
+  resize: vertical;
+}
+
+a {
+  color: inherit;
 }
 
 #root {
-  height: 100%;
-  width: 100%;
+  min-height: 100vh;
 }
 
 ::selection {
-  background: rgba(124, 58, 237, 0.3);
-  color: white;
+  background: rgba(15, 118, 110, 0.18);
+  color: var(--ink-950);
 }
 
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  height: 10px;
+  width: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.24);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
+  background: rgba(71, 85, 105, 0.24);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(71, 85, 105, 0.34);
+  background-clip: padding-box;
 }

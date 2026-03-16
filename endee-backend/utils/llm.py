@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 import google.generativeai as genai
 
@@ -17,6 +18,15 @@ if api_key:
 else:
     llm = None
     print("WARNING: GOOGLE_API_KEY is not set. All AI features will not work.")
+
+
+def is_ai_configured() -> bool:
+    return bool(api_key and llm)
+
+
+def _response_text(response) -> str:
+    text = getattr(response, "text", "") or ""
+    return text.strip()
 
 
 def generate_embedding(text: str, task_type: str = "RETRIEVAL_DOCUMENT") -> list:
@@ -40,7 +50,7 @@ def generate_summary(text: str) -> str:
     prompt_text = text[:15000] if len(text) > 15000 else text
     try:
         response = llm.generate_content(f"Summarise the following text in 2-3 sentences:\n\n{prompt_text}")
-        return response.text.strip()
+        return _response_text(response)
     except Exception as e:
         print(f"Error generating summary: {e}")
         return f"Error: {str(e)}"
@@ -65,29 +75,25 @@ def rewrite_query(query: str, history: list = None) -> str:
 
     try:
         response = llm.generate_content(prompt)
-        rewritten = response.text.strip()
+        rewritten = _response_text(response)
         return rewritten if rewritten else query
     except Exception:
         return query
 
-def transcribe_audio(file_path: str) -> str:
-    import time
+
+def transcribe_audio(file_bytes: bytes, mime_type: str | None = None) -> str:
     if not api_key:
         raise RuntimeError("GOOGLE_API_KEY is not set. Voice transcription unavailable.")
-    
-    # Read audio file as bytes
-    with open(file_path, 'rb') as f:
-        audio_data = f.read()
-    
-    # Use gemini-2.0-flash-exp which supports audio input
+
     audio_model = genai.GenerativeModel("models/gemini-2.0-flash-exp")
-    
+    safe_mime_type = mime_type or "audio/webm"
+
     try:
         response = audio_model.generate_content([
             "Transcribe this audio exactly as spoken. Return only the spoken words, nothing else.",
-            {"mime_type": "audio/webm", "data": audio_data}
+            {"mime_type": safe_mime_type, "data": file_bytes}
         ])
-        return response.text.strip()
+        return _response_text(response)
     except Exception as e:
         print(f"Transcription error: {e}")
         raise RuntimeError(f"Audio transcription failed: {str(e)}")
@@ -113,7 +119,7 @@ def answer_query(query: str, context: str, history: list = None) -> str:
 
     try:
         response = llm.generate_content(prompt)
-        return response.text.strip()
+        return _response_text(response)
     except Exception as e:
         print(f"Error answering query: {e}")
         return "I'm sorry, I encountered an error while processing your request."

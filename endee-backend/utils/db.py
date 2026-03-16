@@ -1,6 +1,6 @@
 import os
-import requests
 import msgpack
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -10,6 +10,11 @@ ENDEE_AUTH_TOKEN = os.environ.get("ENDEE_AUTH_TOKEN", "")
 
 INDEX_NAME = "document_collection"
 EMBEDDING_DIM = 3072
+REQUEST_TIMEOUT = float(os.environ.get("ENDEE_REQUEST_TIMEOUT", "20"))
+
+
+class EndeeError(RuntimeError):
+    pass
 
 
 def _headers():
@@ -19,22 +24,64 @@ def _headers():
     return h
 
 
+def _extract_error_message(response: requests.Response) -> str:
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = None
+
+    if isinstance(payload, dict):
+        detail = payload.get("detail") or payload.get("message") or payload.get("error")
+        if detail:
+            return str(detail)
+
+    if response.text.strip():
+        return response.text.strip()
+
+    return f"Unexpected response from Endee ({response.status_code})."
+
+
+def _request(method: str, path: str, *, expected: tuple[int, ...], **kwargs) -> requests.Response:
+    url = f"{ENDEE_BASE_URL.rstrip('/')}{path}"
+    try:
+        response = requests.request(
+            method,
+            url,
+            headers=_headers(),
+            timeout=REQUEST_TIMEOUT,
+            **kwargs,
+        )
+    except requests.RequestException as error:
+        raise EndeeError(
+            f"Could not reach Endee at {ENDEE_BASE_URL}. Make sure the server is running."
+        ) from error
+
+    if response.status_code not in expected:
+        raise EndeeError(_extract_error_message(response))
+
+    return response
+
+
 def _ensure_index():
-    url = f"{ENDEE_BASE_URL}/api/v1/index/create"
     payload = {
         "index_name": INDEX_NAME,
         "dim": EMBEDDING_DIM,
         "space_type": "cosine",
     }
-    resp = requests.post(url, json=payload, headers=_headers())
-    if resp.status_code not in (200, 409):
-        raise RuntimeError(f"Failed to create Endee index: {resp.text}")
+    _request("post", "/api/v1/index/create", json=payload, expected=(200, 409))
+
+
+def check_db_health() -> tuple[bool, str]:
+    try:
+        _ensure_index()
+    except EndeeError as error:
+        return False, str(error)
+
+    return True, f"Connected to Endee and ready to use `{INDEX_NAME}`."
 
 
 def add_chunks_to_db(chunks: list[str], source_id: str, task_type: str = "RETRIEVAL_DOCUMENT") -> int:
     from utils.llm import generate_embedding
-
-    clear_db()
 
     if not chunks:
         return 0
@@ -53,10 +100,13 @@ def add_chunks_to_db(chunks: list[str], source_id: str, task_type: str = "RETRIE
     if not vectors:
         return 0
 
-    url = f"{ENDEE_BASE_URL}/api/v1/index/{INDEX_NAME}/vector/insert"
-    resp = requests.post(url, json=vectors, headers=_headers())
-    if resp.status_code != 200:
-        raise RuntimeError(f"Failed to insert vectors into Endee: {resp.text}")
+    clear_db()
+    _request(
+        "post",
+        f"/api/v1/index/{INDEX_NAME}/vector/insert",
+        json=vectors,
+        expected=(200,),
+    )
 
     return len(vectors)
 
@@ -68,27 +118,27 @@ def query_db(query_text: str, n_results: int = 4) -> str:
     if not embedding:
         return ""
 
-    url = f"{ENDEE_BASE_URL}/api/v1/index/{INDEX_NAME}/search"
     payload = {
         "k": n_results,
         "vector": embedding,
     }
-    resp = requests.post(url, json=payload, headers=_headers())
-    if resp.status_code != 200:
-        return ""
+    response = _request(
+        "post",
+        f"/api/v1/index/{INDEX_NAME}/search",
+        json=payload,
+        expected=(200,),
+    )
 
-    # Response is msgpack-encoded ResultSet.
-    # ResultSet MSGPACK_DEFINE(results) → decoded as [results_list].
-    # VectorResult MSGPACK_DEFINE(similarity, id, meta, filter, norm, vector)
-    # → each result is [similarity, id, meta_bytes, filter, norm, vector].
-    data = msgpack.unpackb(resp.content, raw=False)
+    try:
+        data = msgpack.unpackb(response.content, raw=False)
+    except (msgpack.ExtraData, msgpack.FormatError, msgpack.StackError, ValueError) as error:
+        raise EndeeError("Received an unreadable search response from Endee.") from error
+
     if not data:
         results_list = []
     elif data[0] and isinstance(data[0][0], float):
-        # data is already [VectorResult1, VectorResult2, ...]
         results_list = data
     else:
-        # data is [[VectorResult1, VectorResult2, ...]]
         results_list = data[0] if data[0] else []
 
     chunks = []
@@ -103,8 +153,5 @@ def query_db(query_text: str, n_results: int = 4) -> str:
 
 
 def clear_db():
-    url = f"{ENDEE_BASE_URL}/api/v1/index/{INDEX_NAME}/delete"
-    resp = requests.delete(url, headers=_headers())
-    if resp.status_code not in (200, 404):
-        raise RuntimeError(f"Failed to delete Endee index: {resp.text}")
+    _request("delete", f"/api/v1/index/{INDEX_NAME}/delete", expected=(200, 404))
     _ensure_index()

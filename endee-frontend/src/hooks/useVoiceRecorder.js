@@ -1,84 +1,136 @@
-import { useState, useRef, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-const getMimeAndExt = () => {
-  if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus"))
-    return { mimeType: "audio/webm;codecs=opus", ext: "webm" };
-  if (MediaRecorder.isTypeSupported("audio/webm"))
-    return { mimeType: "audio/webm", ext: "webm" };
-  if (MediaRecorder.isTypeSupported("audio/mp4"))
-    return { mimeType: "audio/mp4", ext: "mp4" };
-  return { mimeType: "", ext: "webm" };
-};
+const SUPPORTED_TYPES = [
+  { mimeType: 'audio/webm;codecs=opus', extension: 'webm' },
+  { mimeType: 'audio/webm', extension: 'webm' },
+  { mimeType: 'audio/mp4', extension: 'mp4' },
+];
 
-export const useVoiceRecorder = () => {
+function getRecorderFormat() {
+  if (typeof window === 'undefined' || typeof window.MediaRecorder === 'undefined') {
+    return { mimeType: '', extension: 'webm' };
+  }
+
+  return (
+    SUPPORTED_TYPES.find((option) => window.MediaRecorder.isTypeSupported(option.mimeType)) ??
+    { mimeType: '', extension: 'webm' }
+  );
+}
+
+function formatRecorderError(error) {
+  if (error?.name === 'NotAllowedError') {
+    return 'Microphone access is blocked. Allow microphone permission and try again.';
+  }
+
+  if (error?.name === 'NotFoundError') {
+    return 'No microphone was detected on this device.';
+  }
+
+  return 'Unable to start recording right now.';
+}
+
+export function useVoiceRecorder() {
+  const [error, setError] = useState('');
   const [isRecording, setIsRecording] = useState(false);
-  const [audioUrl, setAudioUrl] = useState(null);
-  const [audioExt, setAudioExt] = useState("webm");
+  const [lastRecording, setLastRecording] = useState(null);
   const [recordingTime, setRecordingTime] = useState(0);
 
-  const mediaRecorder = useRef(null);
-  const audioChunks = useRef([]);
-  const timerInterval = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const chunksRef = useRef([]);
+  const streamRef = useRef(null);
+  const timerRef = useRef(null);
+  const formatRef = useRef(getRecorderFormat());
 
-  const startRecording = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-      const { mimeType, ext } = getMimeAndExt();
-      setAudioExt(ext);
-
-      mediaRecorder.current = mimeType
-        ? new MediaRecorder(stream, { mimeType })
-        : new MediaRecorder(stream);
-      audioChunks.current = [];
-
-      mediaRecorder.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunks.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.current.onstop = () => {
-        const actualMime =
-          mediaRecorder.current?.mimeType || mimeType || "audio/webm";
-        const audioBlob = new Blob(audioChunks.current, { type: actualMime });
-        const url = URL.createObjectURL(audioBlob);
-        setAudioUrl(url);
-      };
-
-      mediaRecorder.current.start();
-      setIsRecording(true);
-      setRecordingTime(0);
-
-      timerInterval.current = setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
-      }, 1000);
-    } catch (error) {
-      console.error("Error accessing microphone:", error);
+  const cleanup = useCallback(() => {
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
     }
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+
+    mediaRecorderRef.current = null;
   }, []);
 
-  const stopRecording = useCallback(() => {
-    if (mediaRecorder.current && isRecording) {
-      mediaRecorder.current.stop();
-      mediaRecorder.current.stream.getTracks().forEach((track) => track.stop());
-      setIsRecording(false);
-      clearInterval(timerInterval.current);
-    }
-  }, [isRecording]);
+  useEffect(() => cleanup, [cleanup]);
 
   const clearRecording = useCallback(() => {
-    setAudioUrl(null);
+    setLastRecording(null);
     setRecordingTime(0);
   }, []);
 
+  const startRecording = useCallback(async () => {
+    if (typeof window === 'undefined' || typeof window.MediaRecorder === 'undefined') {
+      setError('This browser does not support audio recording.');
+      return;
+    }
+
+    setError('');
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const nextFormat = getRecorderFormat();
+      const recorder = nextFormat.mimeType
+        ? new window.MediaRecorder(stream, { mimeType: nextFormat.mimeType })
+        : new window.MediaRecorder(stream);
+
+      formatRef.current = nextFormat;
+      chunksRef.current = [];
+      streamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const mimeType =
+          recorder.mimeType || formatRef.current.mimeType || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type: mimeType });
+
+        setLastRecording({
+          blob,
+          mimeType,
+          extension: formatRef.current.extension,
+        });
+
+        cleanup();
+        setIsRecording(false);
+      };
+
+      recorder.start();
+      setLastRecording(null);
+      setRecordingTime(0);
+      setIsRecording(true);
+
+      timerRef.current = window.setInterval(() => {
+        setRecordingTime((seconds) => seconds + 1);
+      }, 1000);
+    } catch (errorValue) {
+      cleanup();
+      setIsRecording(false);
+      setError(formatRecorderError(errorValue));
+    }
+  }, [cleanup]);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+    }
+  }, [isRecording]);
+
   return {
+    error,
     isRecording,
-    audioUrl,
-    audioExt,
+    lastRecording,
     recordingTime,
+    clearRecording,
     startRecording,
     stopRecording,
-    clearRecording,
   };
-};
+}
