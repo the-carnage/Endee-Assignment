@@ -1,174 +1,20 @@
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap');
-
 :root {
-  /* ── Brand Identity ────────────────────────────── */
-  --brand-emerald:       #10b981;
-  --brand-emerald-light: #34d399;
-  --brand-emerald-dim:   #059669;
-  --brand-emerald-glow:  rgba(16, 185, 129, 0.15);
-  --brand-sky:           #0ea5e9;
-  --brand-sky-light:     #38bdf8;
-  --brand-amber:         #f59e0b;
-  --brand-sage:          #6ee7b7;
-
-  /* ── Surface Stack ─────────────────────────────── */
-  --bg-void:             #ffffff;
-  --bg-primary:          #f4fdf8;
-  --bg-secondary:        #ecfaf3;
-  --bg-elevated:         #ffffff;
-  --bg-overlay:          #d8f5e8;
-  --bg-hover:            #c6f0db;
-  --bg-card:             rgba(255, 255, 255, 0.9);
-  --bg-glass:            rgba(255, 255, 255, 0.65);
-
-  /* ── Noise & Texture ───────────────────────────── */
-  --noise-subtle:        url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
-
-  /* ── Typography ────────────────────────────────── */
-  --font-display:        'Syne', sans-serif;
-  --font-body:           'DM Sans', sans-serif;
-
-  --text-scale-xs:       0.6875rem;   /* 11px */
-  --text-scale-sm:       0.8125rem;   /* 13px */
-  --text-scale-base:     0.9375rem;   /* 15px */
-  --text-scale-md:       1.0625rem;   /* 17px */
-  --text-scale-lg:       1.25rem;     /* 20px */
-  --text-scale-xl:       1.5625rem;   /* 25px */
-  --text-scale-2xl:      2rem;        /* 32px */
-  --text-scale-3xl:      2.75rem;     /* 44px */
-  --text-scale-display:  4rem;        /* 64px */
-
-  --leading-tight:       1.15;
-  --leading-snug:        1.35;
-  --leading-base:        1.6;
-  --leading-relaxed:     1.85;
-
-  --tracking-tight:      -0.03em;
-  --tracking-snug:       -0.015em;
-  --tracking-base:       0em;
-  --tracking-wide:       0.04em;
-  --tracking-wider:      0.1em;
-  --tracking-caps:       0.14em;
-
-  /* ── Ink Palette ───────────────────────────────── */
-  --ink-primary:         #0d2418;
-  --ink-secondary:       #3d6b52;
-  --ink-tertiary:        #7aaa90;
-  --ink-muted:           #b0d4c0;
-  --ink-ghost:           #d8f0e4;
-  --ink-inverse:         #ffffff;
-
-  /* ── Borders ───────────────────────────────────── */
-  --border-hair:         rgba(16, 185, 129, 0.07);
-  --border-subtle:       rgba(16, 185, 129, 0.12);
-  --border-default:      rgba(16, 185, 129, 0.20);
-  --border-strong:       rgba(16, 185, 129, 0.32);
-  --border-emerald:      rgba(16, 185, 129, 0.45);
-  --border-emerald-bright: rgba(16, 185, 129, 0.70);
-
-  /* ── Semantic Status ───────────────────────────── */
-  --status-success:      #22c98a;
-  --status-success-bg:   rgba(34, 201, 138, 0.1);
-  --status-warning:      #e8a020;
-  --status-warning-bg:   rgba(232, 160, 32, 0.1);
-  --status-error:        #e05252;
-  --status-error-bg:     rgba(224, 82, 82, 0.1);
-  --status-info:         #4a90b8;
-  --status-info-bg:      rgba(74, 144, 184, 0.1);
-
-  /* ── Elevation Shadows ─────────────────────────── */
-  --shadow-xs:           0 1px 2px rgba(16, 185, 129, 0.07);
-  --shadow-sm:           0 2px 6px rgba(16, 185, 129, 0.09),
-                         0 1px 2px rgba(16, 185, 129, 0.06);
-  --shadow-md:           0 4px 16px rgba(16, 185, 129, 0.11),
-                         0 2px 4px rgba(16, 185, 129, 0.07);
-  --shadow-lg:           0 10px 32px rgba(16, 185, 129, 0.14),
-                         0 4px 8px rgba(16, 185, 129, 0.08);
-  --shadow-xl:           0 24px 64px rgba(16, 185, 129, 0.17),
-                         0 8px 16px rgba(16, 185, 129, 0.09);
-  --shadow-2xl:          0 48px 100px rgba(16, 185, 129, 0.22);
-
-  /* ── Glow FX ───────────────────────────────────── */
-  --glow-emerald:        0 0 24px rgba(16, 185, 129, 0.28),
-                         0 0 6px rgba(16, 185, 129, 0.16);
-  --glow-emerald-strong: 0 0 48px rgba(16, 185, 129, 0.40),
-                         0 0 16px rgba(16, 185, 129, 0.24);
-  --glow-sky:            0 0 24px rgba(14, 165, 233, 0.25);
-  --glow-amber:          0 0 24px rgba(245, 158, 11, 0.25);
-
-  /* ── Radii ─────────────────────────────────────── */
-  --radius-xs:           0.1875rem;   /* 3px  */
-  --radius-sm:           0.3125rem;   /* 5px  */
-  --radius-md:           0.625rem;    /* 10px */
-  --radius-lg:           1rem;        /* 16px */
-  --radius-xl:           1.5rem;      /* 24px */
-  --radius-2xl:          2rem;        /* 32px */
-  --radius-pill:         9999px;
-
-  /* ── Spacing Scale (8pt grid) ──────────────────── */
-  --space-1:   0.25rem;   /*  4px */
-  --space-2:   0.5rem;    /*  8px */
-  --space-3:   0.75rem;   /* 12px */
-  --space-4:   1rem;      /* 16px */
-  --space-5:   1.25rem;   /* 20px */
-  --space-6:   1.5rem;    /* 24px */
-  --space-8:   2rem;      /* 32px */
-  --space-10:  2.5rem;    /* 40px */
-  --space-12:  3rem;      /* 48px */
-  --space-16:  4rem;      /* 64px */
-  --space-20:  5rem;      /* 80px */
-  --space-24:  6rem;      /* 96px */
-
-  /* ── Motion ────────────────────────────────────── */
-  --ease-snap:    cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-smooth:  cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-spring:  cubic-bezier(0.34, 1.56, 0.64, 1);
-  --ease-out:     cubic-bezier(0, 0, 0.2, 1);
-  --ease-in:      cubic-bezier(0.4, 0, 1, 1);
-
-  --duration-instant:  80ms;
-  --duration-fast:     150ms;
-  --duration-base:     220ms;
-  --duration-slow:     360ms;
-  --duration-slower:   520ms;
-  --duration-lazy:     800ms;
-
-  --transition-fast:   var(--duration-fast) var(--ease-smooth);
-  --transition-base:   var(--duration-base) var(--ease-smooth);
-  --transition-slow:   var(--duration-slow) var(--ease-smooth);
-  --transition-snap:   var(--duration-slow) var(--ease-snap);
-  --transition-spring: var(--duration-slow) var(--ease-spring);
-
-  /* ── Z-Index Stack ─────────────────────────────── */
-  --z-below:    -1;
-  --z-base:      1;
-  --z-raised:    5;
-  --z-dropdown: 100;
-  --z-sticky:   200;
-  --z-overlay:  300;
-  --z-modal:    400;
-  --z-toast:    500;
-  --z-tooltip:  600;
-  --z-supreme:  9999;
-
-  /* ── Layout ────────────────────────────────────── */
-  --container-sm:   640px;
-  --container-md:   768px;
-  --container-lg:   1024px;
-  --container-xl:   1280px;
-  --container-2xl:  1536px;
-
-  --sidebar-width:         260px;
-  --sidebar-collapsed:     64px;
-  --topbar-height:         56px;
-  --panel-width:           380px;
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --bg-color: #0a0a0f;
+  --text-color: #f0f0f5;
+  --border: rgba(255, 255, 255, 0.08);
+  --surface: rgba(255, 255, 255, 0.03);
+  --surface-hv: rgba(255, 255, 255, 0.06);
+  --accent: #7c3aed;
+  --accent-2: #ec4899;
+  --accent-glow: rgba(124, 58, 237, 0.4);
+  --text-1: #f0f0f5;
+  --text-2: rgba(255, 255, 255, 0.8);
+  --text-3: rgba(255, 255, 255, 0.5);
+  --radius: 12px;
 }
 
-/* ═══════════════════════════════════════════════════
-   Reset & Base
-═══════════════════════════════════════════════════ */
-
-*, *::before, *::after {
+* {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -178,16 +24,12 @@ html {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  scroll-behavior: smooth;
 }
 
 body {
-  font-family: var(--font-body);
-  font-size: var(--text-scale-base);
-  background: var(--bg-primary);
-  color: var(--ink-primary);
-  line-height: var(--leading-base);
+  font-family: var(--font-family);
+  background: var(--bg-color);
+  color: var(--text-color);
   overflow: hidden;
   height: 100vh;
   width: 100vw;
@@ -196,153 +38,27 @@ body {
 #root {
   height: 100%;
   width: 100%;
-  display: flex;
-  flex-direction: column;
 }
-
-/* ═══════════════════════════════════════════════════
-   Scrollbar
-═══════════════════════════════════════════════════ */
-
-::-webkit-scrollbar       { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb {
-  background: var(--bg-hover);
-  border-radius: var(--radius-pill);
-  transition: background var(--transition-fast);
-}
-::-webkit-scrollbar-thumb:hover { background: var(--brand-emerald-dim); }
-
-/* ═══════════════════════════════════════════════════
-   Selection & Focus
-═══════════════════════════════════════════════════ */
 
 ::selection {
-  background: rgba(16, 185, 129, 0.18);
-  color: var(--brand-emerald-dim);
+  background: rgba(124, 58, 237, 0.3);
+  color: white;
 }
 
-:focus-visible {
-  outline: 1.5px solid var(--brand-emerald);
-  outline-offset: 3px;
-  border-radius: var(--radius-sm);
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
 }
 
-/* ═══════════════════════════════════════════════════
-   Utility: Text
-═══════════════════════════════════════════════════ */
-
-.text-gradient-emerald {
-  background: linear-gradient(115deg, var(--brand-emerald-light) 0%, var(--brand-emerald) 50%, var(--brand-emerald-dim) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.text-gradient-cool {
-  background: linear-gradient(115deg, var(--brand-sky-light), var(--brand-emerald));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
 }
 
-.text-gradient-warm {
-  background: linear-gradient(115deg, var(--brand-emerald-light), var(--brand-amber));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.font-display { font-family: var(--font-display); }
-.font-body    { font-family: var(--font-body); }
-
-.tracking-caps {
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-  font-size: var(--text-scale-xs);
-  font-weight: 600;
-}
-
-.truncate {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ═══════════════════════════════════════════════════
-   Utility: Surfaces
-═══════════════════════════════════════════════════ */
-
-.glass {
-  background: var(--bg-glass);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  border: 1px solid var(--border-subtle);
-}
-
-.glass-emerald {
-  background: rgba(16, 185, 129, 0.05);
-  backdrop-filter: blur(16px) saturate(120%);
-  -webkit-backdrop-filter: blur(16px) saturate(120%);
-  border: 1px solid var(--border-emerald);
-}
-
-.surface {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-}
-
-.surface-raised {
-  background: var(--bg-overlay);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-}
-
-/* ═══════════════════════════════════════════════════
-   Utility: Gradients
-═══════════════════════════════════════════════════ */
-
-.gradient-emerald {
-  background: linear-gradient(135deg, var(--brand-emerald-dim), var(--brand-emerald), var(--brand-emerald-light));
-}
-
-.gradient-light {
-  background: linear-gradient(160deg, var(--bg-secondary), var(--bg-void));
-}
-
-.gradient-sky {
-  background: linear-gradient(135deg, var(--brand-sky), var(--brand-emerald));
-}
-
-/* ═══════════════════════════════════════════════════
-   Utility: Dividers
-═══════════════════════════════════════════════════ */
-
-.divider {
-  height: 1px;
-  background: var(--border-hair);
-}
-
-.divider-emerald {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--brand-emerald-light), transparent);
-}
-
-/* ═══════════════════════════════════════════════════
-   Utility: Glow & Decoration
-═══════════════════════════════════════════════════ */
-
-.glow-emerald { box-shadow: var(--glow-emerald); }
-.glow-strong  { box-shadow: var(--glow-emerald-strong); }
-.glow-sky     { box-shadow: var(--glow-sky); }
-
-.noise::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: var(--noise-subtle);
-  pointer-events: none;
-  border-radius: inherit;
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
