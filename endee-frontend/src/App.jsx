@@ -177,6 +177,7 @@ function App() {
   const [textContent, setTextContent] = useState('');
   const [queryInput, setQueryInput] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isSourceSetupOpen, setIsSourceSetupOpen] = useState(false);
   const [phase, setPhase] = useState('idle');
   const [notice, setNotice] = useState(null);
 
@@ -198,6 +199,7 @@ function App() {
   const currentStatus = isRecording ? 'recording' : phase;
   const disableQueries = phase === 'indexing' || phase === 'processing';
   const activeTab = SOURCE_TABS.find((tab) => tab.id === sourceTab) ?? SOURCE_TABS[0];
+  const showSourceSetup = !documentState.loaded || isSourceSetupOpen;
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -293,6 +295,7 @@ function App() {
     setTextTitle('');
     setTextContent('');
     setQueryInput('');
+    setIsSourceSetupOpen(false);
     setPhase('idle');
     clearRecording();
   }, [clearRecording]);
@@ -309,12 +312,13 @@ function App() {
         }),
       );
       setPhase('ready');
+      setIsSourceSetupOpen(false);
 
       if (summary) {
         replaceConversation([
           createMessage(
             'assistant',
-            `Indexed ${name}. Quick brief: ${summary}`,
+            summary,
             'summary',
           ),
         ]);
@@ -582,154 +586,11 @@ function App() {
           </header>
 
           <div className="sidebar-scroll">
-            <article className="hero-card">
-              <div className="hero-copy">
-                <p className="eyebrow">Production-style assignment build</p>
-                <h2>Upload a source and keep retrieval grounded.</h2>
-                <p className="hero-text">
-                  One active knowledge base, clear service visibility, and a chat-first Q&A flow.
-                </p>
-              </div>
-
-              <div className="health-panel">
-                <div className="health-heading">
-                  <div>
-                    <span className="section-label">System status</span>
-                    <p>{healthSummary(health)}</p>
-                  </div>
-                  <code>{API_URL}</code>
-                </div>
-
-                <div className="service-grid">
-                  {[
-                    { label: 'Backend', value: health.backend },
-                    { label: 'Endee', value: health.endee },
-                    { label: 'Gemini', value: health.ai },
-                  ].map((service) => (
-                    <article
-                      key={service.label}
-                      className={`service-card ${service.value.status}`}
-                    >
-                      <span className={`service-dot ${service.value.status}`} />
-                      <div>
-                        <h3>{service.label}</h3>
-                        <p>{service.value.message}</p>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </div>
-            </article>
-
-            <article className="panel source-panel">
-              <div className="panel-heading">
-                <div>
-                  <span className="section-label">Source setup</span>
-                  <h2>{activeTab.title}</h2>
-                </div>
-                {documentState.loaded && (
-                  <div className="indexed-pill">
-                    <span>Current source</span>
-                    <strong>{documentState.name}</strong>
-                  </div>
-                )}
-              </div>
-
-              <p className="panel-description">{activeTab.description}</p>
-
-              <div className="tab-row" role="tablist" aria-label="Source type">
-                {SOURCE_TABS.map((tab) => (
-                  <button
-                    key={tab.id}
-                    className={`tab-btn ${sourceTab === tab.id ? 'active' : ''}`}
-                    onClick={() => setSourceTab(tab.id)}
-                    type="button"
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-
-              {sourceTab !== 'text' ? (
-                <>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    hidden
-                    accept={activeTab.accept}
-                    onChange={(event) => {
-                      const nextFile = event.target.files?.[0];
-                      if (nextFile) {
-                        void handleFileUpload(nextFile, sourceTab);
-                      }
-                      event.target.value = '';
-                    }}
-                  />
-
-                  <button
-                    className={`dropzone ${isDragOver ? 'drag-over' : ''}`}
-                    onClick={() => fileInputRef.current?.click()}
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                      setIsDragOver(true);
-                    }}
-                    onDragLeave={() => setIsDragOver(false)}
-                    onDrop={(event) => {
-                      void handleDrop(event);
-                    }}
-                    type="button"
-                  >
-                    <span className="dropzone-icon" aria-hidden="true">
-                      {sourceTab === 'pdf' ? 'PDF' : 'IMG'}
-                    </span>
-                    <strong>
-                      {documentState.loaded ? 'Replace the current source' : 'Drop a file or click to browse'}
-                    </strong>
-                    <p>
-                      New uploads replace the current knowledge base so answers stay focused.
-                    </p>
-                  </button>
-                </>
-              ) : (
-                <div className="text-ingest">
-                  <input
-                    className="text-title-input"
-                    maxLength="80"
-                    onChange={(event) => setTextTitle(event.target.value)}
-                    placeholder="Optional title for this source"
-                    value={textTitle}
-                  />
-                  <textarea
-                    className="text-source-input"
-                    onChange={(event) => setTextContent(event.target.value)}
-                    placeholder="Paste the content you want to ask questions about."
-                    rows="9"
-                    value={textContent}
-                  />
-                  <div className="text-ingest-footer">
-                    <span>{textContent.length.toLocaleString()} characters</span>
-                    <button
-                      className="primary-btn"
-                      disabled={phase === 'indexing'}
-                      onClick={() => void handleTextIngest()}
-                      type="button"
-                    >
-                      Index text
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div className="source-footnote">
-                <span>Single-source retrieval keeps answers grounded in the active document.</span>
-              </div>
-            </article>
-
             <article className="panel summary-panel">
               <div className="panel-heading">
                 <div>
-                  <span className="section-label">Document snapshot</span>
-                  <h2>{documentState.loaded ? documentState.name : 'Nothing indexed yet'}</h2>
+                  <span className="section-label">Workspace</span>
+                  <h2>{documentState.loaded ? documentState.name : 'No source loaded'}</h2>
                 </div>
                 <label className="toggle-row">
                   <input
@@ -768,9 +629,9 @@ function App() {
                   </div>
                 </>
               ) : (
-                <div className="empty-summary">
-                  <p>Once you index a source, its quick summary and useful starter prompts show up here.</p>
-                </div>
+                <p className="panel-description">
+                  Upload a document, text, or image from the conversation area to start.
+                </p>
               )}
             </article>
           </div>
@@ -781,9 +642,19 @@ function App() {
             <div>
               <p className="section-label">Conversation</p>
               <h2>Ask by typing or using voice</h2>
+              <p className="chat-health-note">{healthSummary(health)}</p>
             </div>
             <div className="chat-header-controls">
-              <button className="secondary-btn" onClick={() => void refreshHealth()}>
+              {documentState.loaded && (
+                <button
+                  className="ghost-btn"
+                  onClick={() => setIsSourceSetupOpen((open) => !open)}
+                  type="button"
+                >
+                  {showSourceSetup ? 'Hide source setup' : 'Change source'}
+                </button>
+              )}
+              <button className="secondary-btn" onClick={() => void refreshHealth()} type="button">
                 Refresh health
               </button>
               <div className={`status-pill ${currentStatus}`}>
@@ -795,15 +666,111 @@ function App() {
           </header>
 
           <div className="conversation-log">
+            {showSourceSetup && (
+              <article className="conversation-setup">
+                <div className="conversation-setup-header">
+                  <div>
+                    <span className="section-label">Source setup</span>
+                    <h3>{activeTab.title}</h3>
+                    <p className="panel-description">{activeTab.description}</p>
+                  </div>
+                  {documentState.loaded && (
+                    <div className="indexed-pill">
+                      <span>Current source</span>
+                      <strong>{documentState.name}</strong>
+                    </div>
+                  )}
+                </div>
+
+                <div className="tab-row" role="tablist" aria-label="Source type">
+                  {SOURCE_TABS.map((tab) => (
+                    <button
+                      key={tab.id}
+                      className={`tab-btn ${sourceTab === tab.id ? 'active' : ''}`}
+                      onClick={() => setSourceTab(tab.id)}
+                      type="button"
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {sourceTab !== 'text' ? (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      hidden
+                      accept={activeTab.accept}
+                      onChange={(event) => {
+                        const nextFile = event.target.files?.[0];
+                        if (nextFile) {
+                          void handleFileUpload(nextFile, sourceTab);
+                        }
+                        event.target.value = '';
+                      }}
+                    />
+
+                    <button
+                      className={`dropzone ${isDragOver ? 'drag-over' : ''}`}
+                      onClick={() => fileInputRef.current?.click()}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        setIsDragOver(true);
+                      }}
+                      onDragLeave={() => setIsDragOver(false)}
+                      onDrop={(event) => {
+                        void handleDrop(event);
+                      }}
+                      type="button"
+                    >
+                      <span className="dropzone-icon" aria-hidden="true">
+                        {sourceTab === 'pdf' ? 'PDF' : 'IMG'}
+                      </span>
+                      <strong>
+                        {documentState.loaded ? 'Replace the current source' : 'Drop a file or click to browse'}
+                      </strong>
+                      <p>New uploads replace the active knowledge base so answers stay focused.</p>
+                    </button>
+                  </>
+                ) : (
+                  <div className="text-ingest">
+                    <input
+                      className="text-title-input"
+                      maxLength="80"
+                      onChange={(event) => setTextTitle(event.target.value)}
+                      placeholder="Optional title for this source"
+                      value={textTitle}
+                    />
+                    <textarea
+                      className="text-source-input"
+                      onChange={(event) => setTextContent(event.target.value)}
+                      placeholder="Paste the content you want to ask questions about."
+                      rows="9"
+                      value={textContent}
+                    />
+                    <div className="text-ingest-footer">
+                      <span>{textContent.length.toLocaleString()} characters</span>
+                      <button
+                        className="primary-btn"
+                        disabled={phase === 'indexing'}
+                        onClick={() => void handleTextIngest()}
+                        type="button"
+                      >
+                        Index text
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </article>
+            )}
+
             {messages.length === 0 ? (
-              <div className="conversation-empty">
-                <h3>{documentState.loaded ? 'Your next question starts here.' : 'Index a source to unlock retrieval.'}</h3>
-                <p>
-                  {documentState.loaded
-                    ? 'Use the text box for precise prompts or the mic for hands-free queries.'
-                    : 'The UI keeps backend, Endee, and Gemini status visible while you set up.'}
-                </p>
-              </div>
+              documentState.loaded && !showSourceSetup ? (
+                <div className="conversation-empty">
+                  <h3>Ask your first question.</h3>
+                </div>
+              ) : null
             ) : (
               messages.map((message) => (
                 <article
@@ -853,7 +820,7 @@ function App() {
                 placeholder={
                   documentState.loaded
                     ? 'Ask for a summary, a fact lookup, extracted actions, or a grounded answer.'
-                    : 'Index a source first to enable querying.'
+                    : 'Upload a source above to enable querying.'
                 }
                 rows="3"
                 value={queryInput}
