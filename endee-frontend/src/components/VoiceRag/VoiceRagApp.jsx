@@ -6,6 +6,8 @@ import MicFooter from "./MicFooter";
 import "./VoiceRag.css";
 import { useVoiceRecorder } from "../../hooks/useVoiceRecorder";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 const VoiceRagApp = () => {
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(() => {
     const saved = localStorage.getItem("endee_subtitles");
@@ -68,7 +70,7 @@ const VoiceRagApp = () => {
           .map((m) => ({ role: m.role, text: m.text }));
         formData.append("history", JSON.stringify(recentHistory));
 
-        const apiRes = await fetch("http://localhost:8000/query/voice", {
+        const apiRes = await fetch(`${API_URL}/query/voice`, {
           method: "POST",
           body: formData,
         });
@@ -160,7 +162,7 @@ const VoiceRagApp = () => {
           .slice(-6)
           .map((m) => ({ role: m.role, text: m.text }));
 
-        const apiRes = await fetch("http://localhost:8000/query/text", {
+        const apiRes = await fetch(`${API_URL}/query/text`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text, history: recentHistory }),
@@ -190,7 +192,7 @@ const VoiceRagApp = () => {
 
   const handleClearData = async () => {
     try {
-      await fetch("http://localhost:8000/clear", { method: "POST" });
+      await fetch(`${API_URL}/clear`, { method: "POST" });
     } catch (e) {
       console.error("Failed to clear backend DB", e);
     }

@@ -1,5 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 const UploadZone = ({ onUploadComplete }) => {
   const [activeTab, setActiveTab] = useState("pdf");
   const [uploadState, setUploadState] = useState("idle");
@@ -44,7 +46,7 @@ const UploadZone = ({ onUploadComplete }) => {
       let data;
 
       if (type === "text") {
-        response = await fetch("http://localhost:8000/ingest/text", {
+        response = await fetch(`${API_URL}/ingest/text`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -55,7 +57,7 @@ const UploadZone = ({ onUploadComplete }) => {
         const formData = new FormData();
         formData.append("file", fileOrText);
         formData.append("task_type", taskType);
-        response = await fetch("http://localhost:8000/ingest/file", {
+        response = await fetch(`${API_URL}/ingest/file`, {
           method: "POST",
           body: formData,
         });
