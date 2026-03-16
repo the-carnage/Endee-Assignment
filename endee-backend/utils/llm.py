@@ -79,8 +79,8 @@ def transcribe_audio(file_path: str) -> str:
     with open(file_path, 'rb') as f:
         audio_data = f.read()
     
-    # Use gemini-1.5-flash with direct audio bytes (no file upload)
-    audio_model = genai.GenerativeModel("models/gemini-1.5-flash")
+    # Use gemini-2.0-flash-exp which supports audio input
+    audio_model = genai.GenerativeModel("models/gemini-2.0-flash-exp")
     
     try:
         response = audio_model.generate_content([
