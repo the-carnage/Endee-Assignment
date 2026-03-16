@@ -71,10 +71,28 @@ def rewrite_query(query: str, history: list = None) -> str:
         return query
 
 def transcribe_audio(file_path: str) -> str:
+    import time
     if not llm:
         raise RuntimeError("GOOGLE_API_KEY is not set. Voice transcription unavailable.")
+    
     audio_file = genai.upload_file(file_path)
+    
+    # Wait for file to be ACTIVE
+    max_wait = 10
+    for _ in range(max_wait):
+        file_status = genai.get_file(audio_file.name)
+        if file_status.state.name == "ACTIVE":
+            break
+        time.sleep(1)
+    
     response = llm.generate_content(["Transcribe this audio exactly as spoken. Return only the spoken words, nothing else.", audio_file])
+    
+    # Clean up uploaded file
+    try:
+        genai.delete_file(audio_file.name)
+    except:
+        pass
+    
     return response.text.strip()
 
 def answer_query(query: str, context: str, history: list = None) -> str:
