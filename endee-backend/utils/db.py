@@ -9,7 +9,7 @@ ENDEE_BASE_URL = os.environ.get("ENDEE_BASE_URL", "http://localhost:8080")
 ENDEE_AUTH_TOKEN = os.environ.get("ENDEE_AUTH_TOKEN", "")
 
 INDEX_NAME = "document_collection"
-EMBEDDING_DIM = 768
+EMBEDDING_DIM = 3072
 
 
 def _headers():

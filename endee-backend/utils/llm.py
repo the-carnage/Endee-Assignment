@@ -7,7 +7,7 @@ load_dotenv()
 # API key
 api_key = os.environ.get("GOOGLE_API_KEY")
 # Models
-LLM_MODEL       = "gemini-2.0-flash"
+LLM_MODEL       = "models/gemini-2.0-flash"
 EMBEDDING_MODEL = "models/gemini-embedding-001"
 
 # Client
@@ -26,8 +26,7 @@ def generate_embedding(text: str, task_type: str = "RETRIEVAL_DOCUMENT") -> list
         result = genai.embed_content(
             model=EMBEDDING_MODEL,
             content=text,
-            task_type=task_type,
-            output_dimensionality=768,
+            task_type=task_type
         )
         return result["embedding"]
     except Exception as e:

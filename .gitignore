@@ -8,6 +8,17 @@ Thumbs.db
 *.swp
 *.swo
 
+# Python
+venv/
+.venv/
+env/
+.env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
 # Secrets (safety net for all subdirs)
 .env
 .env.local
