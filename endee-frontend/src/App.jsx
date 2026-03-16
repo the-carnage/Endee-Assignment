@@ -567,35 +567,27 @@ function App() {
       )}
 
       <div className="app-frame">
-        <header className="app-header">
-          <div className="brand-lockup">
-            <div className="brand-badge">ER</div>
-            <div>
-              <p className="eyebrow">Voice RAG Workspace</p>
-              <h1>Endee Research Copilot</h1>
+        <aside className="sidebar">
+          <header className="sidebar-header">
+            <div className="brand-lockup">
+              <div className="brand-badge">ER</div>
+              <div>
+                <p className="eyebrow">Voice RAG Workspace</p>
+                <h1>Endee Research Copilot</h1>
+              </div>
             </div>
-          </div>
-
-          <div className="header-actions">
-            <button className="secondary-btn" onClick={() => void refreshHealth()}>
-              Refresh health
-            </button>
-            <button className="ghost-btn" onClick={handleReset}>
+            <button className="ghost-btn sidebar-clear-btn" onClick={handleReset}>
               Clear workspace
             </button>
-          </div>
-        </header>
+          </header>
 
-        <main className="workspace">
-          <section className="control-column">
+          <div className="sidebar-scroll">
             <article className="hero-card">
               <div className="hero-copy">
                 <p className="eyebrow">Production-style assignment build</p>
-                <h2>Upload a source, retrieve the right chunks, and answer with context.</h2>
+                <h2>Upload a source and keep retrieval grounded.</h2>
                 <p className="hero-text">
-                  This workspace keeps the flow tight: one indexed knowledge base at a time,
-                  clear service health, and both text and voice questioning without hidden
-                  failure states.
+                  One active knowledge base, clear service visibility, and a chat-first Q&A flow.
                 </p>
               </div>
 
@@ -781,117 +773,122 @@ function App() {
                 </div>
               )}
             </article>
-          </section>
+          </div>
+        </aside>
 
-          <section className="conversation-column">
-            <article className="panel conversation-panel">
-              <div className="panel-heading conversation-heading">
-                <div>
-                  <span className="section-label">Conversation</span>
-                  <h2>Ask by typing or using the mic</h2>
-                </div>
-                <div className={`status-pill ${currentStatus}`}>
-                  {currentStatus === 'recording' ? formatDuration(recordingTime) : statusLabel(currentStatus, documentState.loaded)}
-                </div>
+        <section className="chat-stage">
+          <header className="chat-header">
+            <div>
+              <p className="section-label">Conversation</p>
+              <h2>Ask by typing or using voice</h2>
+            </div>
+            <div className="chat-header-controls">
+              <button className="secondary-btn" onClick={() => void refreshHealth()}>
+                Refresh health
+              </button>
+              <div className={`status-pill ${currentStatus}`}>
+                {currentStatus === 'recording'
+                  ? formatDuration(recordingTime)
+                  : statusLabel(currentStatus, documentState.loaded)}
               </div>
+            </div>
+          </header>
 
-              <div className="conversation-log">
-                {messages.length === 0 ? (
-                  <div className="conversation-empty">
-                    <h3>{documentState.loaded ? 'Your next question starts here.' : 'Index a source to unlock retrieval.'}</h3>
-                    <p>
-                      {documentState.loaded
-                        ? 'Use the text box for precise prompts or the mic for hands-free queries.'
-                        : 'The UI will stay honest about backend, Endee, and Gemini status while you get set up.'}
-                    </p>
-                  </div>
-                ) : (
-                  messages.map((message) => (
-                    <article
-                      key={message.id}
-                      className={`message-bubble ${message.role} ${message.kind}`}
-                    >
-                      <div className="message-role">
-                        {message.role === 'user' ? 'You' : 'Assistant'}
-                      </div>
-                      <div className="message-body">
-                        <p>{message.text}</p>
-                        <span>{message.time}</span>
-                      </div>
-                    </article>
-                  ))
-                )}
-
-                {currentStatus === 'processing' && (
-                  <article className="message-bubble assistant thinking">
-                    <div className="message-role">Assistant</div>
-                    <div className="message-body">
-                      <div className="typing-dots" aria-hidden="true">
-                        <span />
-                        <span />
-                        <span />
-                      </div>
-                      <span>Searching the indexed context…</span>
-                    </div>
-                  </article>
-                )}
-
-                <div ref={conversationEndRef} />
+          <div className="conversation-log">
+            {messages.length === 0 ? (
+              <div className="conversation-empty">
+                <h3>{documentState.loaded ? 'Your next question starts here.' : 'Index a source to unlock retrieval.'}</h3>
+                <p>
+                  {documentState.loaded
+                    ? 'Use the text box for precise prompts or the mic for hands-free queries.'
+                    : 'The UI keeps backend, Endee, and Gemini status visible while you set up.'}
+                </p>
               </div>
-
-              <div className="composer-area">
-                <form
-                  className="query-form"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void handleQuerySubmit(queryInput);
-                  }}
+            ) : (
+              messages.map((message) => (
+                <article
+                  key={message.id}
+                  className={`message-bubble ${message.role} ${message.kind}`}
                 >
-                  <textarea
-                    className="query-input"
-                    disabled={!documentState.loaded || disableQueries}
-                    onChange={(event) => setQueryInput(event.target.value)}
-                    placeholder={
-                      documentState.loaded
-                        ? 'Ask for a summary, a fact lookup, extracted actions, or a grounded answer.'
-                        : 'Index a source first to enable querying.'
-                    }
-                    rows="3"
-                    value={queryInput}
-                  />
-
-                  <div className="composer-actions">
-                    <div className="composer-hint">
-                      {currentStatus === 'recording'
-                        ? `Recording now (${formatDuration(recordingTime)})`
-                        : statusLabel(currentStatus, documentState.loaded)}
-                    </div>
-
-                    <div className="composer-buttons">
-                      <button
-                        className="secondary-btn"
-                        disabled={!queryInput.trim() || !documentState.loaded || disableQueries}
-                        type="submit"
-                      >
-                        Ask
-                      </button>
-
-                      <button
-                        className={`mic-btn ${currentStatus}`}
-                        disabled={!documentState.loaded || disableQueries}
-                        onClick={handleMicClick}
-                        type="button"
-                      >
-                        <span className="mic-signal" aria-hidden="true" />
-                        <span>{isRecording ? 'Stop recording' : 'Ask with voice'}</span>
-                      </button>
-                    </div>
+                  <div className="message-role">
+                    {message.role === 'user' ? 'You' : 'Assistant'}
                   </div>
-                </form>
+                  <div className="message-body">
+                    <p>{message.text}</p>
+                    <span>{message.time}</span>
+                  </div>
+                </article>
+              ))
+            )}
+
+            {currentStatus === 'processing' && (
+              <article className="message-bubble assistant thinking">
+                <div className="message-role">Assistant</div>
+                <div className="message-body">
+                  <div className="typing-dots" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+                  <span>Searching the indexed context...</span>
+                </div>
+              </article>
+            )}
+
+            <div ref={conversationEndRef} />
+          </div>
+
+          <div className="composer-area">
+            <form
+              className="query-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void handleQuerySubmit(queryInput);
+              }}
+            >
+              <textarea
+                className="query-input"
+                disabled={!documentState.loaded || disableQueries}
+                onChange={(event) => setQueryInput(event.target.value)}
+                placeholder={
+                  documentState.loaded
+                    ? 'Ask for a summary, a fact lookup, extracted actions, or a grounded answer.'
+                    : 'Index a source first to enable querying.'
+                }
+                rows="3"
+                value={queryInput}
+              />
+
+              <div className="composer-actions">
+                <div className="composer-hint">
+                  {currentStatus === 'recording'
+                    ? `Recording now (${formatDuration(recordingTime)})`
+                    : statusLabel(currentStatus, documentState.loaded)}
+                </div>
+
+                <div className="composer-buttons">
+                  <button
+                    className="secondary-btn"
+                    disabled={!queryInput.trim() || !documentState.loaded || disableQueries}
+                    type="submit"
+                  >
+                    Ask
+                  </button>
+
+                  <button
+                    className={`mic-btn ${currentStatus}`}
+                    disabled={!documentState.loaded || disableQueries}
+                    onClick={handleMicClick}
+                    type="button"
+                  >
+                    <span className="mic-signal" aria-hidden="true" />
+                    <span>{isRecording ? 'Stop recording' : 'Ask with voice'}</span>
+                  </button>
+                </div>
               </div>
-            </article>
-          </section>
-        </main>
+            </form>
+          </div>
+        </section>
       </div>
     </div>
   );
