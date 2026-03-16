@@ -9,15 +9,7 @@ from pydantic import BaseModel
 
 from utils.db import add_chunks_to_db, query_db, clear_db
 from utils.extractors import extract_from_pdf, extract_from_image, chunk_text
-from utils.llm import generate_summary, answer_query, rewrite_query
-
-try:
-    import whisper
-    whisper_model = whisper.load_model("medium")
-    HAS_WHISPER = True
-except ImportError:
-    HAS_WHISPER = False
-    print("WARNING: whisper not found. Voice queries will not work.")
+from utils.llm import generate_summary, answer_query, rewrite_query, transcribe_audio
 
 app = FastAPI(title="Voice RAG API")
 
@@ -110,9 +102,6 @@ async def clear_database():
 
 @app.post("/query/voice")
 async def query_voice(audio: UploadFile = File(...), history: str = Form(default="[]")):
-    if not HAS_WHISPER:
-        raise HTTPException(status_code=501, detail="Whisper is not installed on the server.")
-
     try:
         chat_history = json.loads(history)
     except (json.JSONDecodeError, TypeError):
@@ -124,8 +113,7 @@ async def query_voice(audio: UploadFile = File(...), history: str = Form(default
             tmp.write(await audio.read())
             tmp_path = tmp.name
 
-        result = whisper_model.transcribe(tmp_path, language="en", fp16=False)
-        transcript = result["text"].strip()
+        transcript = transcribe_audio(tmp_path)
         os.remove(tmp_path)
 
         if not transcript:

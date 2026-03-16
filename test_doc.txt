@@ -1,8 +1,0 @@
-The Endee Voice RAG Agent is an advanced system that combines Retrieval-Augmented Generation (RAG) with voice interaction. 
-It replaces traditional chat interfaces with a more natural, fluid voice experience. 
-The system requires users to upload a context document (PDF, Text, or Image).
-Once uploaded, the text is chunked and stored in a local ChromaDB vector database.
-When the user speaks into the microphone, their voice is transcribed using OpenAI's Whisper model (running locally).
-The transcribed text queries the ChromaDB to find the 3 most relevant chunks.
-Finally, Google's Gemini 1.5 Flash model formulates a concise, exact answer based ONLY on that retrieved context.
-If no context is found, it will politely decline to answer.

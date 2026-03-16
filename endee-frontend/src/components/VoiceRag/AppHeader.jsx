@@ -119,7 +119,8 @@ const AppHeader = ({ subtitlesEnabled, setSubtitlesEnabled, onClearData }) => {
             <div className="info-modal-body">
               <p className="info-desc">
                 Note Retriever is a Retrieval-Augmented Generation (RAG) app.
-                Upload any document and ask questions about it — by voice or by typing.
+                Upload any document and ask questions about it — by voice or by
+                typing.
               </p>
 
               <div className="info-steps">
@@ -127,28 +128,42 @@ const AppHeader = ({ subtitlesEnabled, setSubtitlesEnabled, onClearData }) => {
                   <span className="info-step-num">1</span>
                   <div>
                     <strong>Upload a source</strong>
-                    <p>Drop a PDF, image, or paste text using the panel at the top. The document is chunked and indexed into a vector database.</p>
+                    <p>
+                      Drop a PDF, image, or paste text using the panel at the
+                      top. The document is chunked and indexed into a vector
+                      database.
+                    </p>
                   </div>
                 </div>
                 <div className="info-step">
                   <span className="info-step-num">2</span>
                   <div>
                     <strong>Ask a question</strong>
-                    <p>Type your question in the input box and press <kbd>Enter</kbd>, or click the mic button to record your voice.</p>
+                    <p>
+                      Type your question in the input box and press{" "}
+                      <kbd>Enter</kbd>, or click the mic button to record your
+                      voice.
+                    </p>
                   </div>
                 </div>
                 <div className="info-step">
                   <span className="info-step-num">3</span>
                   <div>
                     <strong>Get an answer</strong>
-                    <p>The app retrieves the most relevant passages and generates a precise answer using an LLM.</p>
+                    <p>
+                      The app retrieves the most relevant passages and generates
+                      a precise answer using an LLM.
+                    </p>
                   </div>
                 </div>
                 <div className="info-step">
                   <span className="info-step-num">4</span>
                   <div>
                     <strong>Reset anytime</strong>
-                    <p>Click <strong>Reset</strong> in the header to clear the document and start fresh with a new source.</p>
+                    <p>
+                      Click <strong>Reset</strong> in the header to clear the
+                      document and start fresh with a new source.
+                    </p>
                   </div>
                 </div>
               </div>

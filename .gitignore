@@ -1,15 +1,3 @@
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-venv/
-.env
-.env.local
-.env.*.local
-
-# Node
-node_modules/
-
 # OS
 .DS_Store
 Thumbs.db
@@ -20,4 +8,7 @@ Thumbs.db
 *.swp
 *.swo
 
-endee-backend/.env
+# Secrets (safety net for all subdirs)
+.env
+.env.local
+.env.*.local

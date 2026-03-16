@@ -1,36 +1,30 @@
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
-from openai import OpenAI
 
 load_dotenv()
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-GEMINI_API_KEY = os.environ.get("GOOGLE_API_KEY")
+# API key
+api_key = os.environ.get("GOOGLE_API_KEY")
+# Models
+LLM_MODEL       = "gemini-2.0-flash"
+EMBEDDING_MODEL = "models/gemini-embedding-001"
 
-if GEMINI_API_KEY and GEMINI_API_KEY != "your_gemini_api_key_here":
-    genai.configure(api_key=GEMINI_API_KEY)
+# Client
+if api_key:
+    genai.configure(api_key=api_key)
+    llm = genai.GenerativeModel(LLM_MODEL)
 else:
-    print("WARNING: GOOGLE_API_KEY is not set. Embeddings will not work.")
+    llm = None
+    print("WARNING: GOOGLE_API_KEY is not set. All AI features will not work.")
 
-if GROQ_API_KEY and GROQ_API_KEY != "your_groq_api_key_here":
-    groq_client = OpenAI(
-        api_key=GROQ_API_KEY,
-        base_url="https://api.groq.com/openai/v1"
-    )
-else:
-    groq_client = None
-    print("WARNING: GROQ_API_KEY is not set. LLM queries will not work.")
-
-GROQ_MODEL = "openai/gpt-oss-120b"
-GEMINI_EMBEDDING_MODEL = "models/gemini-embedding-001"
 
 def generate_embedding(text: str, task_type: str = "RETRIEVAL_DOCUMENT") -> list:
-    if not GEMINI_API_KEY or GEMINI_API_KEY == "your_gemini_api_key_here":
+    if not api_key:
         return []
     try:
         result = genai.embed_content(
-            model=GEMINI_EMBEDDING_MODEL,
+            model=EMBEDDING_MODEL,
             content=text,
             task_type=task_type,
             output_dimensionality=768,
@@ -41,25 +35,19 @@ def generate_embedding(text: str, task_type: str = "RETRIEVAL_DOCUMENT") -> list
         return []
 
 def generate_summary(text: str) -> str:
-    if not groq_client:
-        return "Backend API Key missing or invalid. Upload successful but summary unavailable."
+    if not llm:
+        return "Backend API Key missing. Upload successful but summary unavailable."
 
     prompt_text = text[:15000] if len(text) > 15000 else text
-    prompt = f"Summarise the following text in 2-3 sentences:\n\n{prompt_text}"
-
     try:
-        response = groq_client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-        )
-        return response.choices[0].message.content.strip()
+        response = llm.generate_content(f"Summarise the following text in 2-3 sentences:\n\n{prompt_text}")
+        return response.text.strip()
     except Exception as e:
         print(f"Error generating summary: {e}")
         return f"Error: {str(e)}"
 
 def rewrite_query(query: str, history: list = None) -> str:
-    if not history or not groq_client:
+    if not history or not llm:
         return query
 
     lines = []
@@ -77,19 +65,22 @@ def rewrite_query(query: str, history: list = None) -> str:
     )
 
     try:
-        response = groq_client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.5,
-        )
-        rewritten = response.choices[0].message.content.strip()
+        response = llm.generate_content(prompt)
+        rewritten = response.text.strip()
         return rewritten if rewritten else query
     except Exception:
         return query
 
+def transcribe_audio(file_path: str) -> str:
+    if not llm:
+        raise RuntimeError("GOOGLE_API_KEY is not set. Voice transcription unavailable.")
+    audio_file = genai.upload_file(file_path)
+    response = llm.generate_content(["Transcribe this audio exactly as spoken. Return only the spoken words, nothing else.", audio_file])
+    return response.text.strip()
+
 def answer_query(query: str, context: str, history: list = None) -> str:
-    if not groq_client:
-        return "I cannot answer right now because the backend API key is missing or invalid."
+    if not llm:
+        return "I cannot answer right now because the backend API key is missing."
 
     history_block = ""
     if history:
@@ -107,12 +98,8 @@ def answer_query(query: str, context: str, history: list = None) -> str:
     )
 
     try:
-        response = groq_client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-        )
-        return response.choices[0].message.content.strip()
+        response = llm.generate_content(prompt)
+        return response.text.strip()
     except Exception as e:
         print(f"Error answering query: {e}")
         return "I'm sorry, I encountered an error while processing your request."
