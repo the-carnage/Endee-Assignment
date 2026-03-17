@@ -1,4 +1,5 @@
 import os
+from functools import lru_cache
 
 from dotenv import load_dotenv
 import google.generativeai as genai
@@ -8,8 +9,17 @@ load_dotenv()
 # API key
 api_key = os.environ.get("GOOGLE_API_KEY")
 # Models
-LLM_MODEL       = "models/gemini-2.0-flash"
-EMBEDDING_MODEL = "models/gemini-embedding-001"
+LLM_MODEL = os.environ.get("GEMINI_LLM_MODEL", "models/gemini-2.5-flash")
+EMBEDDING_MODEL = os.environ.get("GEMINI_EMBEDDING_MODEL", "models/gemini-embedding-001")
+TRANSCRIPTION_MODEL = os.environ.get("GEMINI_TRANSCRIPTION_MODEL", "")
+DEFAULT_TRANSCRIPTION_MODELS = (
+    TRANSCRIPTION_MODEL,
+    "models/gemini-2.5-flash",
+    LLM_MODEL,
+    "models/gemini-2.0-flash",
+    "models/gemini-2.0-flash-001",
+    "models/gemini-flash-latest",
+)
 
 # Client
 if api_key:
@@ -27,6 +37,53 @@ def is_ai_configured() -> bool:
 def _response_text(response) -> str:
     text = getattr(response, "text", "") or ""
     return text.strip()
+
+
+@lru_cache(maxsize=1)
+def _available_generate_content_models() -> set[str]:
+    if not api_key:
+        return set()
+
+    try:
+        return {
+            model.name
+            for model in genai.list_models()
+            if "generateContent" in (getattr(model, "supported_generation_methods", []) or [])
+        }
+    except Exception as error:
+        print(f"Error listing Gemini models: {error}")
+        return set()
+
+
+def _transcription_model_candidates() -> list[str]:
+    available_models = _available_generate_content_models()
+    candidates: list[str] = []
+
+    for model_name in DEFAULT_TRANSCRIPTION_MODELS:
+        if not model_name or model_name in candidates:
+            continue
+        if available_models and model_name not in available_models:
+            continue
+        candidates.append(model_name)
+
+    if candidates:
+        return candidates
+
+    fallback_candidates: list[str] = []
+    for model_name in DEFAULT_TRANSCRIPTION_MODELS:
+        if model_name and model_name not in fallback_candidates:
+            fallback_candidates.append(model_name)
+
+    return fallback_candidates
+
+
+def _is_retryable_model_error(error: Exception) -> bool:
+    message = str(error).lower()
+    return (
+        "not found" in message
+        or "not supported for generatecontent" in message
+        or "unsupported" in message
+    )
 
 
 def generate_embedding(text: str, task_type: str = "RETRIEVAL_DOCUMENT") -> list:
@@ -85,18 +142,25 @@ def transcribe_audio(file_bytes: bytes, mime_type: str | None = None) -> str:
     if not api_key:
         raise RuntimeError("GOOGLE_API_KEY is not set. Voice transcription unavailable.")
 
-    audio_model = genai.GenerativeModel("models/gemini-2.0-flash-exp")
     safe_mime_type = mime_type or "audio/webm"
+    prompt = "Transcribe this audio exactly as spoken. Return only the spoken words, nothing else."
+    last_error = None
 
-    try:
-        response = audio_model.generate_content([
-            "Transcribe this audio exactly as spoken. Return only the spoken words, nothing else.",
-            {"mime_type": safe_mime_type, "data": file_bytes}
-        ])
-        return _response_text(response)
-    except Exception as e:
-        print(f"Transcription error: {e}")
-        raise RuntimeError(f"Audio transcription failed: {str(e)}")
+    for model_name in _transcription_model_candidates():
+        try:
+            audio_model = genai.GenerativeModel(model_name)
+            response = audio_model.generate_content([
+                prompt,
+                {"mime_type": safe_mime_type, "data": file_bytes},
+            ])
+            return _response_text(response)
+        except Exception as error:
+            last_error = error
+            print(f"Transcription error with {model_name}: {error}")
+            if not _is_retryable_model_error(error):
+                break
+
+    raise RuntimeError(f"Audio transcription failed: {last_error}")
 
 def answer_query(query: str, context: str, history: list = None) -> str:
     if not llm:

@@ -2,7 +2,6 @@ import { startTransition, useCallback, useEffect, useRef, useState } from 'react
 import './App.css';
 import { useVoiceRecorder } from './hooks/useVoiceRecorder';
 import {
-  API_URL,
   clearKnowledgeBase,
   fetchHealthStatus,
   ingestFileSource,
@@ -562,9 +561,9 @@ function App() {
       {notice && (
         <div className={`notice-banner ${notice.tone}`}>
           <span className="notice-label">
-            {notice.tone === 'success' && 'Success'}
-            {notice.tone === 'warning' && 'Heads up'}
-            {notice.tone === 'error' && 'Issue'}
+            {notice.tone === "success" && "Success"}
+            {notice.tone === "warning" && "Heads up"}
+            {notice.tone === "error" && "Issue"}
           </span>
           <p>{notice.message}</p>
         </div>
@@ -577,12 +576,9 @@ function App() {
               <div className="brand-badge">ER</div>
               <div>
                 <p className="eyebrow">Voice RAG Workspace</p>
-                <h1>Endee Research Copilot</h1>
+                <h1>Research Copilot</h1>
               </div>
             </div>
-            <button className="ghost-btn sidebar-clear-btn" onClick={handleReset}>
-              Clear workspace
-            </button>
           </header>
 
           <div className="sidebar-scroll">
@@ -590,12 +586,18 @@ function App() {
               <div className="panel-heading">
                 <div>
                   <span className="section-label">Workspace</span>
-                  <h2>{documentState.loaded ? documentState.name : 'No source loaded'}</h2>
+                  <h2>
+                    {documentState.loaded
+                      ? documentState.name
+                      : "No source loaded"}
+                  </h2>
                 </div>
                 <label className="toggle-row">
                   <input
                     checked={showTranscript}
-                    onChange={(event) => setShowTranscript(event.target.checked)}
+                    onChange={(event) =>
+                      setShowTranscript(event.target.checked)
+                    }
                     type="checkbox"
                   />
                   <span>Show voice transcript</span>
@@ -611,7 +613,8 @@ function App() {
                   </div>
 
                   <p className="summary-copy">
-                    {documentState.summary || 'No summary was returned for this source.'}
+                    {documentState.summary ||
+                      "No summary was returned for this source."}
                   </p>
 
                   <div className="prompt-stack">
@@ -630,7 +633,8 @@ function App() {
                 </>
               ) : (
                 <p className="panel-description">
-                  Upload a document, text, or image from the conversation area to start.
+                  Upload a document, text, or image from the conversation area
+                  to start.
                 </p>
               )}
             </article>
@@ -651,16 +655,20 @@ function App() {
                   onClick={() => setIsSourceSetupOpen((open) => !open)}
                   type="button"
                 >
-                  {showSourceSetup ? 'Hide source setup' : 'Change source'}
+                  {showSourceSetup ? "Hide source setup" : "Change source"}
                 </button>
               )}
-              <button className="secondary-btn" onClick={() => void refreshHealth()} type="button">
+              <button
+                className="secondary-btn"
+                onClick={() => void refreshHealth()}
+                type="button"
+              >
                 Refresh health
               </button>
               <div className={`status-pill ${currentStatus}`}>
-                {currentStatus === 'recording'
-                  ? formatDuration(recordingTime)
-                  : statusLabel(currentStatus, documentState.loaded)}
+                <button className="secondary-btn" onClick={handleReset}>
+                  Clear workspace
+                </button>
               </div>
             </div>
           </header>
@@ -682,11 +690,15 @@ function App() {
                   )}
                 </div>
 
-                <div className="tab-row" role="tablist" aria-label="Source type">
+                <div
+                  className="tab-row"
+                  role="tablist"
+                  aria-label="Source type"
+                >
                   {SOURCE_TABS.map((tab) => (
                     <button
                       key={tab.id}
-                      className={`tab-btn ${sourceTab === tab.id ? 'active' : ''}`}
+                      className={`tab-btn ${sourceTab === tab.id ? "active" : ""}`}
                       onClick={() => setSourceTab(tab.id)}
                       type="button"
                     >
@@ -695,7 +707,7 @@ function App() {
                   ))}
                 </div>
 
-                {sourceTab !== 'text' ? (
+                {sourceTab !== "text" ? (
                   <>
                     <input
                       ref={fileInputRef}
@@ -707,12 +719,12 @@ function App() {
                         if (nextFile) {
                           void handleFileUpload(nextFile, sourceTab);
                         }
-                        event.target.value = '';
+                        event.target.value = "";
                       }}
                     />
 
                     <button
-                      className={`dropzone ${isDragOver ? 'drag-over' : ''}`}
+                      className={`dropzone ${isDragOver ? "drag-over" : ""}`}
                       onClick={() => fileInputRef.current?.click()}
                       onDragOver={(event) => {
                         event.preventDefault();
@@ -725,12 +737,17 @@ function App() {
                       type="button"
                     >
                       <span className="dropzone-icon" aria-hidden="true">
-                        {sourceTab === 'pdf' ? 'PDF' : 'IMG'}
+                        {sourceTab === "pdf" ? "PDF" : "IMG"}
                       </span>
                       <strong>
-                        {documentState.loaded ? 'Replace the current source' : 'Drop a file or click to browse'}
+                        {documentState.loaded
+                          ? "Replace the current source"
+                          : "Drop a file or click to browse"}
                       </strong>
-                      <p>New uploads replace the active knowledge base so answers stay focused.</p>
+                      <p>
+                        New uploads replace the active knowledge base so answers
+                        stay focused.
+                      </p>
                     </button>
                   </>
                 ) : (
@@ -750,10 +767,12 @@ function App() {
                       value={textContent}
                     />
                     <div className="text-ingest-footer">
-                      <span>{textContent.length.toLocaleString()} characters</span>
+                      <span>
+                        {textContent.length.toLocaleString()} characters
+                      </span>
                       <button
                         className="primary-btn"
-                        disabled={phase === 'indexing'}
+                        disabled={phase === "indexing"}
                         onClick={() => void handleTextIngest()}
                         type="button"
                       >
@@ -778,7 +797,7 @@ function App() {
                   className={`message-bubble ${message.role} ${message.kind}`}
                 >
                   <div className="message-role">
-                    {message.role === 'user' ? 'You' : 'Assistant'}
+                    {message.role === "user" ? "You" : "Assistant"}
                   </div>
                   <div className="message-body">
                     <p>{message.text}</p>
@@ -788,7 +807,7 @@ function App() {
               ))
             )}
 
-            {currentStatus === 'processing' && (
+            {currentStatus === "processing" && (
               <article className="message-bubble assistant thinking">
                 <div className="message-role">Assistant</div>
                 <div className="message-body">
@@ -819,8 +838,8 @@ function App() {
                 onChange={(event) => setQueryInput(event.target.value)}
                 placeholder={
                   documentState.loaded
-                    ? 'Ask for a summary, a fact lookup, extracted actions, or a grounded answer.'
-                    : 'Upload a source above to enable querying.'
+                    ? "Ask for a summary, a fact lookup, extracted actions, or a grounded answer."
+                    : "Upload a source above to enable querying."
                 }
                 rows="3"
                 value={queryInput}
@@ -828,7 +847,7 @@ function App() {
 
               <div className="composer-actions">
                 <div className="composer-hint">
-                  {currentStatus === 'recording'
+                  {currentStatus === "recording"
                     ? `Recording now (${formatDuration(recordingTime)})`
                     : statusLabel(currentStatus, documentState.loaded)}
                 </div>
@@ -836,10 +855,19 @@ function App() {
                 <div className="composer-buttons">
                   <button
                     className="secondary-btn"
-                    disabled={!queryInput.trim() || !documentState.loaded || disableQueries}
+                    disabled={
+                      !queryInput.trim() ||
+                      !documentState.loaded ||
+                      disableQueries
+                    }
                     type="submit"
                   >
-                    Ask
+                    <svg width="20" height="20" viewBox="0 0 24 24">
+                      <path
+                        fill="currentColor"
+                        d="M2 21l21-9L2 3v7l15 2-15 2z"
+                      />
+                    </svg>
                   </button>
 
                   <button
@@ -849,7 +877,9 @@ function App() {
                     type="button"
                   >
                     <span className="mic-signal" aria-hidden="true" />
-                    <span>{isRecording ? 'Stop recording' : 'Ask with voice'}</span>
+                    <span>
+                      {isRecording ? "Stop recording" : "Ask with voice"}
+                    </span>
                   </button>
                 </div>
               </div>

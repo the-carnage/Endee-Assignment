@@ -112,13 +112,14 @@ Open `http://localhost:5173`.
 ```env
 GOOGLE_API_KEY=your_gemini_api_key
 ENDEE_BASE_URL=http://localhost:8080
+# Leave blank unless Endee auth is enabled.
 ENDEE_AUTH_TOKEN=
 ```
 
 ### `endee-frontend/.env`
 
 ```env
-VITE_API_URL=http://localhost:8000
+VITE_API_URL=http://127.0.0.1:8010
 ```
 
 ## API Endpoints
@@ -168,5 +169,5 @@ curl http://localhost:8000/health
 ## Notes
 
 - The UI intentionally shows only one active indexed source at a time because the current backend clears and replaces the Endee collection on each ingest.
-- If port `8000` is already in use on your machine, start the backend on another port and update `VITE_API_URL` in `endee-frontend/.env`.
+- If port `8010` is already in use on your machine, start the backend on another port and update `VITE_API_URL` in `endee-frontend/.env`.
 - OCR support for images depends on `pytesseract` and a local Tesseract installation being available.
