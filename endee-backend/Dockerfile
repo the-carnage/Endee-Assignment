@@ -10,11 +10,12 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
-# Accept either `requirements.txt` or `Requirements.txt`.
-COPY [Rr]equirements.txt ./Requirements.txt
-RUN python -m pip install --upgrade pip \
-    && python -m pip install -r Requirements.txt
-
 COPY . .
 
-CMD ["sh", "-c", "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+RUN python -m pip install --upgrade pip \
+    && (python -m pip install -r requirements.txt \
+    || python -m pip install -r Requirements.txt \
+    || python -m pip install -r endee-backend/requirements.txt \
+    || python -m pip install -r endee-backend/Requirements.txt)
+
+CMD ["sh", "-c", "cd /app/endee-backend 2>/dev/null || true; python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
