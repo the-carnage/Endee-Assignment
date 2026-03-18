@@ -112,7 +112,7 @@ Open `http://localhost:5173`.
 3. Start command:
 
 ```bash
-uvicorn main:app --host 0.0.0.0 --port $PORT
+python -m uvicorn main:app --host 0.0.0.0 --port $PORT
 ```
 
 4. Add environment variables in Railway:
