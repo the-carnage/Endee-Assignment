@@ -108,7 +108,7 @@ Open `http://localhost:5173`.
 ## Railway Backend Deploy
 
 1. Create a Railway service from this repo and set the service root directory to `endee-backend`.
-2. Use the included `nixpacks.toml` (or set Build Command manually) so Railway installs `Requirements.txt`.
+2. Use the included `nixpacks.toml` (or set Build Command manually) so Railway installs backend dependencies.
 3. Start command:
 
 ```bash
