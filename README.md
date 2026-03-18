@@ -105,6 +105,29 @@ npm run dev
 
 Open `http://localhost:5173`.
 
+## Railway Backend Deploy
+
+1. Create a Railway service from this repo and set the service root directory to `endee-backend`.
+2. Use the included `nixpacks.toml` (or set Build Command manually) so Railway installs `Requirements.txt`.
+3. Start command:
+
+```bash
+uvicorn main:app --host 0.0.0.0 --port $PORT
+```
+
+4. Add environment variables in Railway:
+
+```env
+GOOGLE_API_KEY=your_gemini_api_key
+GEMINI_TRANSCRIPTION_MODEL=models/gemini-2.5-flash
+ENDEE_BASE_URL=<public_or_private_reachable_endee_url>
+ENDEE_AUTH_TOKEN=
+```
+
+5. Set health check path to `/health`.
+
+Important: `ENDEE_BASE_URL` cannot be `http://localhost:8080` when backend runs on Railway.
+
 ## Environment Variables
 
 ### `endee-backend/.env`
