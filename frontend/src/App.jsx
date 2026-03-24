@@ -10,7 +10,7 @@ import {
   submitVoiceQuery,
 } from './lib/api';
 
-const TRANSCRIPT_STORAGE_KEY = 'endee_show_voice_transcript';
+const TRANSCRIPT_STORAGE_KEY = 'faiss_show_voice_transcript';
 
 const SOURCE_TABS = [
   {
@@ -55,7 +55,7 @@ const EMPTY_DOCUMENT = {
 const DEFAULT_HEALTH = {
   checking: true,
   backend: { status: 'checking', message: 'Checking API availability.' },
-  endee: { status: 'checking', message: 'Checking Endee readiness.' },
+  endee: { status: 'checking', message: 'Checking FAISS readiness.' },
   ai: { status: 'checking', message: 'Checking Gemini configuration.' },
 };
 
@@ -146,7 +146,7 @@ function healthSummary(health) {
   }
 
   if (health.endee.status === 'error') {
-    return 'Endee is unreachable. Start the local Endee server on port 8080.';
+    return 'FAISS is unreachable. Start the local vector store on port 8080.';
   }
 
   if (health.ai.status === 'warning') {
@@ -266,7 +266,7 @@ function App() {
         setHealth({
           checking: false,
           backend: { status: 'error', message: 'FastAPI is not reachable.' },
-          endee: { status: 'error', message: 'Endee status unavailable until the API is back.' },
+          endee: { status: 'error', message: 'FAISS status unavailable until the API is back.' },
           ai: { status: 'warning', message: 'Model status unavailable until the API is back.' },
         });
 
@@ -573,10 +573,10 @@ function App() {
         <aside className="sidebar">
           <header className="sidebar-header">
             <div className="brand-lockup">
-              <div className="brand-badge">ER</div>
+              <div className="brand-badge">FR</div>
               <div>
                 <p className="eyebrow">Voice RAG Workspace</p>
-                <h1>Research Copilot</h1>
+                <h1>FAISS Research Copilot</h1>
               </div>
             </div>
           </header>

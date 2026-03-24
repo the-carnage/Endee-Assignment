@@ -13,7 +13,7 @@ class VoiceRagApiTests(unittest.TestCase):
         cls.client = TestClient(main.app)
 
     @patch("main.is_ai_configured", return_value=True)
-    @patch("main.check_db_health", return_value=(True, "Endee ready"))
+    @patch("main.check_db_health", return_value=(True, "FAISS ready"))
     def test_health_check_reports_dependencies(self, check_db_health, is_ai_configured):
         response = self.client.get("/health")
 

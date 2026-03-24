@@ -15,7 +15,7 @@ COPY . .
 RUN python -m pip install --upgrade pip \
     && (python -m pip install -r requirements.txt \
     || python -m pip install -r Requirements.txt \
-    || python -m pip install -r endee-backend/requirements.txt \
-    || python -m pip install -r endee-backend/Requirements.txt)
+    || python -m pip install -r backend/requirements.txt \
+    || python -m pip install -r backend/Requirements.txt)
 
-CMD ["sh", "-c", "cd /app/endee-backend 2>/dev/null || true; python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "cd /app/backend 2>/dev/null || true; python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]

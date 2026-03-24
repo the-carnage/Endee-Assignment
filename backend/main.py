@@ -62,7 +62,7 @@ def _handle_service_error(action: str, error: Exception) -> None:
 @app.get("/")
 def read_root():
     return {
-        "name": "Endee Voice RAG API",
+        "name": "FAISS Voice RAG API",
         "status": "ok",
         "docs": "/docs",
     }

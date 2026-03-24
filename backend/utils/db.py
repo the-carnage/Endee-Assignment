@@ -38,7 +38,7 @@ def _extract_error_message(response: requests.Response) -> str:
     if response.text.strip():
         return response.text.strip()
 
-    return f"Unexpected response from Endee ({response.status_code})."
+    return f"Unexpected response from FAISS ({response.status_code})."
 
 
 def _request(method: str, path: str, *, expected: tuple[int, ...], **kwargs) -> requests.Response:
@@ -53,7 +53,7 @@ def _request(method: str, path: str, *, expected: tuple[int, ...], **kwargs) -> 
         )
     except requests.RequestException as error:
         raise EndeeError(
-            f"Could not reach Endee at {ENDEE_BASE_URL}. Make sure the server is running."
+            f"Could not reach FAISS at {ENDEE_BASE_URL}. Make sure the server is running."
         ) from error
 
     if response.status_code not in expected:
@@ -77,7 +77,7 @@ def check_db_health() -> tuple[bool, str]:
     except EndeeError as error:
         return False, str(error)
 
-    return True, f"Connected to Endee and ready to use `{INDEX_NAME}`."
+    return True, f"Connected to FAISS and ready to use `{INDEX_NAME}`."
 
 
 def add_chunks_to_db(chunks: list[str], source_id: str, task_type: str = "RETRIEVAL_DOCUMENT") -> int:
@@ -132,7 +132,7 @@ def query_db(query_text: str, n_results: int = 4) -> str:
     try:
         data = msgpack.unpackb(response.content, raw=False)
     except (msgpack.ExtraData, msgpack.FormatError, msgpack.StackError, ValueError) as error:
-        raise EndeeError("Received an unreadable search response from Endee.") from error
+        raise EndeeError("Received an unreadable search response from FAISS.") from error
 
     if not data:
         results_list = []
